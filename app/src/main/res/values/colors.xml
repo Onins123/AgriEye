@@ -4,4 +4,5 @@
     <color name="white">#FFFFFFFF</color>
     <color name="agri_dark_green">#0F5132</color>
     <color name="agri_light_green">#198754</color>
+    <color name="agri_light_yellow_green">#D7E2B1</color>
 </resources>
