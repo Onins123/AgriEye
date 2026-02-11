@@ -4,38 +4,47 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
+    android:background="@color/agri_light_yellow_green"
     android:gravity="center"
+    android:orientation="vertical"
     android:padding="32dp"
-    android:background="@color/white"
     tools:context=".MainActivity">
 
     <ImageView
         android:id="@+id/ivLogo"
         android:layout_width="200dp"
         android:layout_height="200dp"
-        android:src="@drawable/agrieye_logo"
-        android:layout_marginBottom="30dp"/>
+        android:layout_marginBottom="0dp"
+        android:src="@drawable/agrieye_logo" />
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="90dp"
+        android:fontFamily="@font/roboto_medium_italic"
+        android:text="One scan closer to a better harvest"
+        android:textAlignment="center" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnTakePhoto"
         android:layout_width="match_parent"
         android:layout_height="60dp"
+        android:layout_marginBottom="16dp"
         android:text="Take a Photo"
-        android:textSize="18sp"
         android:textColor="@color/white"
+        android:textSize="18sp"
         app:backgroundTint="@color/agri_dark_green"
-        app:cornerRadius="30dp"
-        android:layout_marginBottom="16dp"/>
+        app:cornerRadius="30dp" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnImportImage"
         android:layout_width="match_parent"
         android:layout_height="60dp"
         android:text="Import Image"
-        android:textSize="18sp"
         android:textColor="@color/white"
+        android:textSize="18sp"
         app:backgroundTint="@color/agri_dark_green"
-        app:cornerRadius="30dp"/>
+        app:cornerRadius="30dp" />
 
 </LinearLayout>
