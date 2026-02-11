@@ -104,6 +104,13 @@ public class CameraActivity extends AppCompatActivity {
     private void takePhoto() {
         if (imageCapture == null) return;
 
+        // --- NEW: Capture BOTH Width and Height ---
+        float screenWidth = viewFinder.getWidth();
+        float screenHeight = viewFinder.getHeight();
+
+        float boxWidth = overlaySquare.getWidth();
+        float boxHeight = overlaySquare.getHeight();
+
         imageCapture.takePicture(ContextCompat.getMainExecutor(this), new ImageCapture.OnImageCapturedCallback() {
             @Override
             public void onCaptureSuccess(@NonNull ImageProxy image) {
@@ -111,9 +118,8 @@ public class CameraActivity extends AppCompatActivity {
                 image.close();
 
                 if (fullBitmap != null) {
-                    float ManualRatio = 0.5f;
-
-                    Bitmap croppedBitmap = cropToCenterSquare(fullBitmap, ManualRatio);
+                    // --- NEW: Pass all 4 dimensions to the new function ---
+                    Bitmap croppedBitmap = cropToCenterRectangle(fullBitmap, screenWidth, screenHeight, boxWidth, boxHeight);
 
                     java.io.File savedFile = saveBitmapToFile(croppedBitmap);
 
@@ -121,6 +127,7 @@ public class CameraActivity extends AppCompatActivity {
                         android.content.Intent intent = new android.content.Intent(CameraActivity.this, ResultActivity.class);
                         intent.putExtra("image_path", savedFile.getAbsolutePath());
                         startActivity(intent);
+                        finish();
                     } else {
                         Toast.makeText(CameraActivity.this, "Error saving image", Toast.LENGTH_SHORT).show();
                     }
@@ -154,17 +161,47 @@ public class CameraActivity extends AppCompatActivity {
     /**
      * Crops a Bitmap to a square in the dead center of the image.
      */
-    private Bitmap cropToCenterSquare(Bitmap original) {
-        int width = original.getWidth();
-        int height = original.getHeight();
-        // Determine the side length of the square (smallest dimension)
-        int newDimension = Math.min(width, height);
+    private Bitmap cropToCenterRectangle(Bitmap fullImage, float viewFinderWidth, float viewFinderHeight, float overlayWidth, float overlayHeight) {
+        // 1. Get dimensions of the full captured image
+        float imageWidth = fullImage.getWidth();
+        float imageHeight = fullImage.getHeight();
 
-        // Calculate start coordinates to center the crop
-        int cropStartX = (width - newDimension) / 2;
-        int cropStartY = (height - newDimension) / 2;
+        // 2. Calculate the scale factors
+        // This tells us how much the image was scaled up/down to fit the screen width/height
+        float scaleX = imageWidth / viewFinderWidth;
+        float scaleY = imageHeight / viewFinderHeight;
 
-        return Bitmap.createBitmap(original, cropStartX, cropStartY, newDimension, newDimension);
+        // 3. Determine the "Zoom" factor
+        // Since the preview uses "FILL_CENTER", it uses the smaller scale to zoom in until the screen is filled.
+        // We pick the smaller number here to reverse-engineer that zoom.
+        // (Note: If your preview cuts off the sides, we use one logic; if it cuts top/bottom, another.
+        // The simplest robust way for "FILL_CENTER" is to find the matching scale).
+        float scale = Math.min(scaleX, scaleY);
+
+        // 4. Calculate the actual size of the crop on the full image
+        // We multiply the overlay size by the scale to see how big it is on the real image
+        float actualCropWidth = overlayWidth * scale;
+        float actualCropHeight = overlayHeight * scale;
+
+        // 5. Calculate the starting coordinates (Top-Left corner of the crop)
+        // We assume the overlay is centered, so we center the crop on the full image too.
+        float cropX = (imageWidth - actualCropWidth) / 2;
+        float cropY = (imageHeight - actualCropHeight) / 2;
+
+        // 6. Safety Checks (Ensure we don't crop outside the image)
+        if (cropX < 0) cropX = 0;
+        if (cropY < 0) cropY = 0;
+        if (cropX + actualCropWidth > imageWidth) actualCropWidth = imageWidth - cropX;
+        if (cropY + actualCropHeight > imageHeight) actualCropHeight = imageHeight - cropY;
+
+        // 7. Create the crop
+        return Bitmap.createBitmap(
+                fullImage,
+                (int) cropX,
+                (int) cropY,
+                (int) actualCropWidth,
+                (int) actualCropHeight
+        );
     }
 
     // --- Permission Handling Boilerplate ---
@@ -193,24 +230,6 @@ public class CameraActivity extends AppCompatActivity {
             e.printStackTrace();
             return null;
         }
-    }
-
-    private Bitmap cropToCenterSquare(Bitmap original, float fixedRatio) {
-        // 1. Calculate the crop size in pixels based on your manual ratio
-        int cropSize = (int) (original.getWidth() * fixedRatio);
-
-        // 2. Safety check: make sure we don't try to crop bigger than the image itself
-        // Also ensure it fits vertically (in case the image is landscape)
-        int minDimension = Math.min(original.getWidth(), original.getHeight());
-        if (cropSize > minDimension) {
-            cropSize = minDimension;
-        }
-
-        // 3. Calculate start coordinates to exact center
-        int cropStartX = (original.getWidth() - cropSize) / 2;
-        int cropStartY = (original.getHeight() - cropSize) / 2;
-
-        return Bitmap.createBitmap(original, cropStartX, cropStartY, cropSize, cropSize);
     }
 
     @Override

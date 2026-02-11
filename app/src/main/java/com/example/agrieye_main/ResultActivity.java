@@ -1,5 +1,6 @@
 package com.example.agrieye_main;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -8,9 +9,12 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 import java.io.File;
 
 public class ResultActivity extends AppCompatActivity {
+
+    private String imagePath;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,7 +28,8 @@ public class ResultActivity extends AppCompatActivity {
         TextView tvConfidenceValue = findViewById(R.id.tvConfidenceValue);
 
         // 2. Load the image from the file (Your existing logic)
-        String imagePath = getIntent().getStringExtra("image_path");
+        imagePath = getIntent().getStringExtra("image_path");
+
         if (imagePath != null) {
             File imgFile = new File(imagePath);
             if (imgFile.exists()) {
@@ -35,6 +40,9 @@ public class ResultActivity extends AppCompatActivity {
 
         // 3. Retake Button: Goes back to the Camera screen
         btnRetake.setOnClickListener(v -> {
+
+            deleteCurrentPhoto(); //delete the current photo to save memory
+
             Intent intent = new Intent(ResultActivity.this, CameraActivity.class);
             startActivity(intent);
             finish(); // Closes result screen to save memory
@@ -42,8 +50,34 @@ public class ResultActivity extends AppCompatActivity {
 
         // 4. Analyze Button: Triggers the AgriEye model analysis
         btnAnalyze.setOnClickListener(v -> {
-            // Placeholder: This is where you will call your disease detection model
+            // Placeholder: This is where you will call your disease detection model later
+            // We DO NOT delete the photo here because the model needs it
+
+            Toast.makeText(ResultActivity.this, "Analyzing Leaf...", Toast.LENGTH_SHORT).show();
             tvConfidenceValue.setText("98%");
         });
+
+        //when the back button is pressed it is considered as a retake button press and the photo is deleted
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                deleteCurrentPhoto();
+
+                setEnabled(false);//disasble the callback so that when calling the dispatcher it doesnt go into infinite loop
+                getOnBackPressedDispatcher().onBackPressed();
+                finish();
+            }
+        });
+    }
+
+
+    private void deleteCurrentPhoto() {
+        if (imagePath != null) {
+            File imgFile = new File(imagePath);
+            if (imgFile.exists()) {
+                imgFile.delete();
+            }
+        }
     }
 }
+
