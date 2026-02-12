@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/agri_light_yellow_green"
-    android:padding="16dp">
+    android:padding="32dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -24,15 +24,36 @@
             android:textSize="22sp"
             android:textStyle="bold" />
 
-        <ImageView
-            android:id="@+id/ivResultImage"
-            android:layout_width="250dp"
+        <RelativeLayout
+            android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:adjustViewBounds="true"
-            android:scaleType="centerCrop"
-            android:layout_marginBottom="10dp"
-            android:background="#EEE" />
+            android:layout_marginBottom="10dp">
+
+            <ImageView
+                android:id="@+id/ivResultImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#EEE"
+                android:adjustViewBounds="true"
+                android:scaleType="centerCrop" />
+
+            <View
+                android:id="@+id/viewOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#80000000"
+                android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                style="?android:attr/progressBarStyle"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_centerInParent="true"
+                android:indeterminateTint="@android:color/white"
+                android:visibility="gone" />
+        </RelativeLayout>
 
         <TextView
             android:id="@+id/tvDetectionResult"
@@ -58,7 +79,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0%"
-                android:textColor="@color/black" />
+                android.textColor="@color/black" />
         </LinearLayout>
 
         <LinearLayout

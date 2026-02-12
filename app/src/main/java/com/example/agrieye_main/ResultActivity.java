@@ -6,8 +6,11 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.os.Handler;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.io.File;
@@ -26,6 +29,8 @@ public class ResultActivity extends AppCompatActivity {
         Button btnRetake = findViewById(R.id.btnRetake);
         Button btnAnalyze = findViewById(R.id.btnAnalyze);
         TextView tvConfidenceValue = findViewById(R.id.tvConfidenceValue);
+        ProgressBar progressBar = findViewById(R.id.progressBar);
+        View viewOverlay = findViewById(R.id.viewOverlay);
 
         // 2. Load the image from the file (Your existing logic)
         imagePath = getIntent().getStringExtra("image_path");
@@ -52,9 +57,21 @@ public class ResultActivity extends AppCompatActivity {
         btnAnalyze.setOnClickListener(v -> {
             // Placeholder: This is where you will call your disease detection model later
             // We DO NOT delete the photo here because the model needs it
+            progressBar.setVisibility(View.VISIBLE);
+            viewOverlay.setVisibility(View.VISIBLE);
+            btnAnalyze.setText("Analyzing");
+            btnAnalyze.setEnabled(false);
+            btnRetake.setEnabled(false);
 
-            Toast.makeText(ResultActivity.this, "Analyzing Leaf...", Toast.LENGTH_SHORT).show();
-            tvConfidenceValue.setText("98%");
+            new Handler().postDelayed(() -> {
+                progressBar.setVisibility(View.GONE);
+                viewOverlay.setVisibility(View.GONE);
+                btnAnalyze.setText("Analyze");
+                btnAnalyze.setEnabled(true);
+                btnRetake.setEnabled(true);
+                Toast.makeText(ResultActivity.this, "Analysis Complete!", Toast.LENGTH_SHORT).show();
+                tvConfidenceValue.setText("98%");
+            }, 3000); // 3-second delay
         });
 
         //when the back button is pressed it is considered as a retake button press and the photo is deleted
@@ -80,4 +97,3 @@ public class ResultActivity extends AppCompatActivity {
         }
     }
 }
-
