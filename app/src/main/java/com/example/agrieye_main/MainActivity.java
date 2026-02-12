@@ -55,6 +55,16 @@ public class MainActivity extends AppCompatActivity {
         btnImportImage.setOnClickListener(v -> {
             galleryLauncher.launch("image/*");
         });
+
+        // This triggers your ExitActivity when the user presses 'Back'
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                Intent intent = new Intent(MainActivity.this, ExitActivity.class);
+                startActivity(intent);
+            }
+        });
+
     }
 
     private File copyUriToCache(Uri uri) {
@@ -77,5 +87,4 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
     }
-
 }
