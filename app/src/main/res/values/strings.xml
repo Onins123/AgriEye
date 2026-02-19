@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">AgriEye_Main</string>
+    <string name="label_result_analysis">RESULT OF ANALYSIS</string>
+    <string name="label_disease_type">Disease Type:</string>
+    <string name="label_common_cause">Common Cause:</string>
+    <string name="label_severity_level">Severity Level:</string>
+    <string name="label_severity_ses">Severity Classification (SES):</string>
+    <string name="btn_manage_disease">Manage Disease</string>
+
+    <string name="disease_type_blight">Bacterial Blight</string>
+    <string name="common_cause_humidity">Xanthomonas oryzae pv. oryzae</string>
+    <string name="severity_moderate">67%</string>
+    <string name="ses_scale_5">5</string>
+    <string name="desc_analysis_image">Image showing the result of the crop analysis</string>
 </resources>

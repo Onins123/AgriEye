@@ -33,6 +33,7 @@
         android:layout_height="150dp"
         android:background="@color/agri_dark_green"
         android:gravity="center"
+        android:paddingBottom="24dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">

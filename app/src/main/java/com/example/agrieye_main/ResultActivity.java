@@ -55,8 +55,6 @@ public class ResultActivity extends AppCompatActivity {
 
         // 4. Analyze Button: Triggers the AgriEye model analysis
         btnAnalyze.setOnClickListener(v -> {
-            // Placeholder: This is where you will call your disease detection model later
-            // We DO NOT delete the photo here because the model needs it
             progressBar.setVisibility(View.VISIBLE);
             viewOverlay.setVisibility(View.VISIBLE);
             btnAnalyze.setText("Analyzing");
@@ -64,13 +62,17 @@ public class ResultActivity extends AppCompatActivity {
             btnRetake.setEnabled(false);
 
             new Handler().postDelayed(() -> {
+                // Create an intent to start AnalysisResultActivity
+                Intent intent = new Intent(ResultActivity.this, AnalysisResultActivity.class);
+                intent.putExtra("image_path", imagePath);
+                startActivity(intent);
+
+                // Reset the UI on this activity
                 progressBar.setVisibility(View.GONE);
                 viewOverlay.setVisibility(View.GONE);
                 btnAnalyze.setText("Analyze");
                 btnAnalyze.setEnabled(true);
                 btnRetake.setEnabled(true);
-                Toast.makeText(ResultActivity.this, "Analysis Complete!", Toast.LENGTH_SHORT).show();
-                tvConfidenceValue.setText("98%");
             }, 3000); // 3-second delay
         });
 
