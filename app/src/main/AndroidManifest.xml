@@ -50,6 +50,14 @@
             android:exported="false" />
 
         <activity
+            android:name=".DetectActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".NoDetectActivity"
+            android:exported="true" />
+
+        <activity
             android:name=".ExitActivity"
             android:theme="@style/Theme.AgriEye_Main.Dialog.NoTitle" />
 

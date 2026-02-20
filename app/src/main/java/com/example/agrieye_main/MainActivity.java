@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
             if (uri != null){
                 File savedFile = copyUriToCache(uri);
                 if (savedFile != null){
-                    Intent intent = new Intent(MainActivity.this, ResultActivity.class);
+                    Intent intent = new Intent(MainActivity.this, DetectActivity.class);
                     intent.putExtra("image_path", savedFile.getAbsolutePath());
                     startActivity(intent);
                 }else{

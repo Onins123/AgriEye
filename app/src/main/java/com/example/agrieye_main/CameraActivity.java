@@ -124,7 +124,7 @@ public class CameraActivity extends AppCompatActivity {
                     java.io.File savedFile = saveBitmapToFile(croppedBitmap);
 
                     if (savedFile != null) {
-                        android.content.Intent intent = new android.content.Intent(CameraActivity.this, ResultActivity.class);
+                        android.content.Intent intent = new android.content.Intent(CameraActivity.this, DetectActivity.class);
                         intent.putExtra("image_path", savedFile.getAbsolutePath());
                         startActivity(intent);
                         finish();
