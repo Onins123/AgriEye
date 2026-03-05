@@ -4,131 +4,194 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#D7E2B1"
-    android:padding="32dp">
+    android:background="@color/agri_light_yellow_green">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_above="@+id/ivLogo2"
-        android:orientation="vertical">
+        android:fillViewport="true">
 
-        <ImageView
-            android:id="@+id/imageView_ResultOfAnalysis"
+        <LinearLayout
+            android:id="@+id/rootLayout"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginBottom="10dp"
-            android:contentDescription="@string/desc_analysis_image"
-            tools:srcCompat="@tools:sample/avatars" />
-
-        <TextView
-            android:id="@+id/tv_result_label"
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="10dp"
-            android:text="@string/label_result_analysis"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:orientation="vertical"
+            android:padding="32dp"
+            android:gravity="center_horizontal">
 
-        <!-- Disease Type -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="5dp">
+            <ImageView
+                android:id="@+id/imageView_ResultOfAnalysis"
+                android:layout_width="220dp"
+                android:layout_height="360dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="24dp"
+                android:scaleType="centerCrop"
+                android:contentDescription="@string/desc_analysis_image"
+                tools:srcCompat="@tools:sample/avatars" />
+
             <TextView
+                android:id="@+id/tv_result_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/label_disease_type"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-            <TextView
-                android:id="@+id/tv_diseaseType_value"
-                android:layout_width="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="20dp"
+                android:text="@string/label_result_analysis"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/black" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:textSize="16sp" />
+                android:orientation="vertical"
+                android:layout_marginBottom="24dp">
+
+                <!-- Disease Type -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_disease_type"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+                    <TextView
+                        android:id="@+id/tv_diseaseType_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:textSize="16sp"
+                        android:textColor="@color/black" />
+                </LinearLayout>
+
+                <!-- Common Cause -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_common_cause"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+                    <TextView
+                        android:id="@+id/tv_commonCause_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:textSize="16sp"
+                        android:textColor="@color/black" />
+                </LinearLayout>
+
+                <!-- Severity Level -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_severity_level"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+                    <TextView
+                        android:id="@+id/tv_severityLevel_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:textSize="16sp"
+                        android:textColor="@color/black" />
+                </LinearLayout>
+
+                <!-- SES Classification -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_severity_ses"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+                    <TextView
+                        android:id="@+id/tv_severityClassification_value"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:textSize="16sp"
+                        android:textColor="@color/black" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Table-like Management Section -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@color/agri_dark_green">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnManageDisease"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="@string/btn_manage_disease"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:gravity="start|center_vertical"
+                    android:paddingStart="16dp"
+                    app:backgroundTint="@android:color/transparent"
+                    app:cornerRadius="0dp"
+                    app:icon="@android:drawable/arrow_down_float"
+                    app:iconGravity="end"
+                    app:iconTint="@color/white" />
+
+                <LinearLayout
+                    android:id="@+id/layoutManagementTips"
+                    android:layout_width="match_parent"
+                    android:layout_height="248dp"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone"
+                    android:background="#819e72">
+
+                    <androidx.core.widget.NestedScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <TextView
+                            android:id="@+id/tvManagementTipsValue"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/white"
+                            android:textSize="15sp"
+                            android:lineSpacingExtra="4dp"/>
+                    </androidx.core.widget.NestedScrollView>
+                </LinearLayout>
+            </LinearLayout>
+
         </LinearLayout>
-
-        <!-- Common Cause -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="5dp">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_common_cause"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-            <TextView
-                android:id="@+id/tv_commonCause_value"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:textSize="16sp" />
-        </LinearLayout>
-
-        <!-- Severity Level -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="5dp">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_severity_level"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-            <TextView
-                android:id="@+id/tv_severityLevel_value"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:textSize="16sp" />
-        </LinearLayout>
-
-        <!-- SES Classification -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:orientation="horizontal">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_severity_ses"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-            <TextView
-                android:id="@+id/tv_severityClassification_value"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:textSize="16sp" />
-        </LinearLayout>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnManageDisease"
-            android:layout_width="288dp"
-            android:layout_height="55dp"
-            android:layout_gravity="center_horizontal"
-            android:text="@string/btn_manage_disease"
-            app:backgroundTint="@color/agri_dark_green"
-            app:cornerRadius="28dp" />
-
-    </LinearLayout>
+    </ScrollView>
 
     <ImageView
         android:id="@+id/ivLogo2"
         android:layout_width="80dp"
-        android:layout_height="30dp"
+        android:layout_height="40dp"
+        android:src="@drawable/agrieye_logo"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:src="@drawable/agrieye_logo" />
+        android:layout_marginBottom="16dp"/>
 
 </RelativeLayout>
