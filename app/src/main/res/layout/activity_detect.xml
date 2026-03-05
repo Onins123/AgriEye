@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/agri_light_yellow_green"
@@ -89,13 +90,32 @@
                 android:textSize="18sp" />
         </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnAction"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Detect"
-            app:backgroundTint="@color/agri_dark_green"
-            app:cornerRadius="28dp" />
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="10dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRetake"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Retake"
+                android:visibility="gone"
+                app:backgroundTint="@color/agri_dark_green"
+                app:cornerRadius="28dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAction"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:text="Detect"
+                app:backgroundTint="@color/agri_dark_green"
+                app:cornerRadius="28dp" />
+        </LinearLayout>
     </LinearLayout>
 
     <ImageView

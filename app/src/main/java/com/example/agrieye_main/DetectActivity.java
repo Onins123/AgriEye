@@ -27,6 +27,7 @@ public class DetectActivity extends AppCompatActivity {
 
         ImageView ivDetectImage = findViewById(R.id.ivDetectImage);
         Button btnAction = findViewById(R.id.btnAction);
+        Button btnRetake = findViewById(R.id.btnRetake);
         ProgressBar progressBar = findViewById(R.id.progressBar);
         View viewOverlay = findViewById(R.id.viewOverlay);
         TextView tvInfoMessage = findViewById(R.id.tvInfoMessage);
@@ -43,32 +44,37 @@ public class DetectActivity extends AppCompatActivity {
             }
         }
 
+        btnRetake.setOnClickListener(v -> {
+            deleteCurrentPhoto();
+            Intent intent = new Intent(DetectActivity.this, CameraActivity.class);
+            startActivity(intent);
+            finish();
+        });
+
         btnAction.setOnClickListener(v -> {
             if (isDetectionFailed) {
-                // --- Retake Logic ---
                 deleteCurrentPhoto();
                 Intent intent = new Intent(DetectActivity.this, CameraActivity.class);
                 startActivity(intent);
                 finish();
 
             } else if (!isPalayDetected) {
-                // --- Detection Logic ---
                 progressBar.setVisibility(View.VISIBLE);
                 viewOverlay.setVisibility(View.VISIBLE);
                 btnAction.setText("Detecting");
                 btnAction.setEnabled(false);
 
                 new Handler().postDelayed(() -> {
-                    // --- Simulate Detection ---
-                    boolean detectionSuccess = false; // Replace with your actual detection logic
+                    boolean detectionSuccess = true; 
 
                     if (detectionSuccess) {
                         isPalayDetected = true;
                         tvInfoMessage.setText("Palay Detected!");
                         tvInfoMessage.setVisibility(View.VISIBLE);
                         confidenceLayout.setVisibility(View.VISIBLE);
-                        tvConfidenceValue.setText("98%"); // Replace with actual confidence
+                        tvConfidenceValue.setText("98%"); 
                         btnAction.setText("Analyze");
+                        btnRetake.setVisibility(View.VISIBLE);
                     } else {
                         isDetectionFailed = true;
                         tvInfoMessage.setText("No Palay Detected!");
@@ -79,27 +85,31 @@ public class DetectActivity extends AppCompatActivity {
                     progressBar.setVisibility(View.GONE);
                     viewOverlay.setVisibility(View.GONE);
                     btnAction.setEnabled(true);
-                }, 3000); // 3-second delay
+                }, 3000);
 
             } else {
-                // --- Analysis Logic ---
                 progressBar.setVisibility(View.VISIBLE);
                 viewOverlay.setVisibility(View.VISIBLE);
                 btnAction.setText("Analyzing");
                 btnAction.setEnabled(false);
+                btnRetake.setEnabled(false);
 
                 new Handler().postDelayed(() -> {
-                    // Start AnalysisResultActivity
                     Intent intent = new Intent(DetectActivity.this, AnalysisResultActivity.class);
                     intent.putExtra("image_path", imagePath);
+                    
+                    // --- PLACEHOLDERS: Simulated model results ---
+                    intent.putExtra("disease_name", "Bacterial Leaf Blight");
+                    intent.putExtra("diseased_percentage", 15.0); // 15% should map to SES 5 / Moderate
+
                     startActivity(intent);
 
-                    // Reset the UI on this activity for when the user returns
                     progressBar.setVisibility(View.GONE);
                     viewOverlay.setVisibility(View.GONE);
                     btnAction.setText("Analyze");
                     btnAction.setEnabled(true);
-                }, 3000); // 3-second delay
+                    btnRetake.setEnabled(true);
+                }, 3000);
             }
         });
     }

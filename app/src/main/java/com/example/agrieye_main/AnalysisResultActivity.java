@@ -7,6 +7,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import java.io.File;
+import java.util.Locale;
 
 public class AnalysisResultActivity extends AppCompatActivity {
 
@@ -38,17 +39,71 @@ public class AnalysisResultActivity extends AppCompatActivity {
     }
 
     private void startAnalysis() {
-        if (tvTypeValue != null) {
-            tvTypeValue.setText(getString(R.string.disease_type_blight));
+        // 1. Retrieve data from Intent
+        String diseaseName = getIntent().getStringExtra("disease_name");
+        double diseasedPercentage = getIntent().getDoubleExtra("diseased_percentage", 0.0);
+
+        // 2. Logic to determine common cause based on disease type
+        String commonCause;
+        if (diseaseName != null) {
+            switch (diseaseName) {
+                case "Bacterial Leaf Blight":
+                    commonCause = "Xanthomonas oryzae pv. oryzae";
+                    break;
+                case "Bacterial Leaf Streak":
+                    commonCause = "Xanthomonas oryzae pv. Oryzicola";
+                    break;
+                case "Narrow Brown Spot":
+                    commonCause = "Sphaerulina oryzina";
+                    break;
+                case "Leaf Blast":
+                    commonCause = "Magnaporthe oryzae";
+                    break;
+                default:
+                    commonCause = "Unknown Pathogen";
+                    break;
+            }
+        } else {
+            diseaseName = "Unknown Disease";
+            commonCause = "N/A";
         }
-        if (tvCauseValue != null) {
-            tvCauseValue.setText(getString(R.string.common_cause_humidity));
+
+        // 3. Map percentage to SES Scale and Severity Level description
+        String infectionDescription;
+        String sesScale;
+
+        if (diseasedPercentage <= 0) {
+            sesScale = "0";
+            infectionDescription = "no infection";
+        } else if (diseasedPercentage < 1) {
+            sesScale = "1";
+            infectionDescription = "trace";
+        } else if (diseasedPercentage <= 5) {
+            sesScale = "3";
+            infectionDescription = "low";
+        } else if (diseasedPercentage <= 25) {
+            sesScale = "5";
+            infectionDescription = "moderate";
+        } else if (diseasedPercentage <= 50) {
+            sesScale = "7";
+            infectionDescription = "high";
+        } else {
+            sesScale = "9";
+            infectionDescription = "severe";
         }
+
+        // 4. Update UI text
+        if (tvTypeValue != null) tvTypeValue.setText(diseaseName);
+        if (tvCauseValue != null) tvCauseValue.setText(commonCause);
+        
+        // Format: Severity level: 15% (moderate)
         if (tvLevelValue != null) {
-            tvLevelValue.setText(getString(R.string.severity_moderate));
+            tvLevelValue.setText(String.format(Locale.getDefault(), "%.0f%% (%s)", diseasedPercentage, infectionDescription));
         }
+        
+        // Format: Severity Classification (SES): 5
         if (tvSesValue != null) {
-            tvSesValue.setText(getString(R.string.ses_scale_5));
+            tvSesValue.setText(sesScale);
         }
     }
 }
