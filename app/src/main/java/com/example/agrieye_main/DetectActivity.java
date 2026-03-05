@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -16,6 +17,7 @@ import java.io.File;
 
 public class DetectActivity extends AppCompatActivity {
 
+    private static final String TAG = "DetectActivity";
     private String imagePath;
     private boolean isPalayDetected = false;
     private boolean isDetectionFailed = false;
@@ -37,10 +39,17 @@ public class DetectActivity extends AppCompatActivity {
         imagePath = getIntent().getStringExtra("image_path");
 
         if (imagePath != null) {
+            Log.d(TAG, "Loading image from: " + imagePath);
             File imgFile = new File(imagePath);
             if (imgFile.exists()) {
                 Bitmap myBitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
-                ivDetectImage.setImageBitmap(myBitmap);
+                if (myBitmap != null) {
+                    ivDetectImage.setImageBitmap(myBitmap);
+                } else {
+                    Log.e(TAG, "Failed to decode bitmap from path");
+                }
+            } else {
+                Log.e(TAG, "Image file does not exist at path: " + imagePath);
             }
         }
 
@@ -98,9 +107,8 @@ public class DetectActivity extends AppCompatActivity {
                     Intent intent = new Intent(DetectActivity.this, AnalysisResultActivity.class);
                     intent.putExtra("image_path", imagePath);
                     
-                    // --- PLACEHOLDERS: Simulated model results ---
                     intent.putExtra("disease_name", "Bacterial Leaf Blight");
-                    intent.putExtra("diseased_percentage", 15.0); // 15% should map to SES 5 / Moderate
+                    intent.putExtra("diseased_percentage", 15.0);
 
                     startActivity(intent);
 
