@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -13,121 +12,203 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+
 import java.io.File;
+import java.util.List;
 
 public class DetectActivity extends AppCompatActivity {
 
     private static final String TAG = "DetectActivity";
-    private String imagePath;
-    private boolean isPalayDetected = false;
+
+    // ── State ────────────────────────────────────────────────────────────────
+    private String  imagePath;
+    private Bitmap  loadedBitmap;
+    private boolean isPalayDetected   = false;
     private boolean isDetectionFailed = false;
+
+    // ── YOLO ─────────────────────────────────────────────────────────────────
+    private YoloClassifier classifier;
+
+    // ── Views ────────────────────────────────────────────────────────────────
+    private ImageView   ivDetectImage;
+    private Button      btnAction;
+    private Button      btnRetake;
+    private ProgressBar progressBar;
+    private View        viewOverlay;
+    private TextView    tvInfoMessage;
+    private LinearLayout confidenceLayout;
+    private TextView    tvConfidenceValue;
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detect);
 
-        ImageView ivDetectImage = findViewById(R.id.ivDetectImage);
-        Button btnAction = findViewById(R.id.btnAction);
-        Button btnRetake = findViewById(R.id.btnRetake);
-        ProgressBar progressBar = findViewById(R.id.progressBar);
-        View viewOverlay = findViewById(R.id.viewOverlay);
-        TextView tvInfoMessage = findViewById(R.id.tvInfoMessage);
-        LinearLayout confidenceLayout = findViewById(R.id.confidenceLayout);
-        TextView tvConfidenceValue = findViewById(R.id.tvConfidenceValue);
+        // Bind views
+        ivDetectImage    = findViewById(R.id.ivDetectImage);
+        btnAction        = findViewById(R.id.btnAction);
+        btnRetake        = findViewById(R.id.btnRetake);
+        progressBar      = findViewById(R.id.progressBar);
+        viewOverlay      = findViewById(R.id.viewOverlay);
+        tvInfoMessage    = findViewById(R.id.tvInfoMessage);
+        confidenceLayout = findViewById(R.id.confidenceLayout);
+        tvConfidenceValue = findViewById(R.id.tvConfidenceValue);
 
+        // Load image from path passed by CameraActivity
         imagePath = getIntent().getStringExtra("image_path");
-
-        if (imagePath != null) {
-            Log.d(TAG, "Loading image from: " + imagePath);
-            File imgFile = new File(imagePath);
-            if (imgFile.exists()) {
-                Bitmap myBitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
-                if (myBitmap != null) {
-                    ivDetectImage.setImageBitmap(myBitmap);
-                } else {
-                    Log.e(TAG, "Failed to decode bitmap from path");
-                }
-            } else {
-                Log.e(TAG, "Image file does not exist at path: " + imagePath);
-            }
+        loadedBitmap = loadBitmapFromPath(imagePath);
+        if (loadedBitmap != null) {
+            ivDetectImage.setImageBitmap(loadedBitmap);
         }
 
+        // Load YOLOv8 model (fast — just memory-maps the file)
+        classifier = new YoloClassifier(this);
+        boolean modelLoaded = classifier.initialize();
+        if (!modelLoaded) {
+            Log.e(TAG, "YOLOv8 model failed to load.");
+            tvInfoMessage.setText("Model failed to load. Please reinstall the app.");
+            tvInfoMessage.setVisibility(View.VISIBLE);
+            btnAction.setEnabled(false);
+        }
+
+        // ── Retake button ─────────────────────────────────────────────────────
         btnRetake.setOnClickListener(v -> {
             deleteCurrentPhoto();
-            Intent intent = new Intent(DetectActivity.this, CameraActivity.class);
-            startActivity(intent);
-            finish();
+            goToCamera();
         });
 
+        // ── Action button (Detect → Analyze / Retake) ─────────────────────────
         btnAction.setOnClickListener(v -> {
+
             if (isDetectionFailed) {
+                // "Retake" after failed detection
                 deleteCurrentPhoto();
-                Intent intent = new Intent(DetectActivity.this, CameraActivity.class);
-                startActivity(intent);
-                finish();
+                goToCamera();
 
             } else if (!isPalayDetected) {
-                progressBar.setVisibility(View.VISIBLE);
-                viewOverlay.setVisibility(View.VISIBLE);
-                btnAction.setText("Detecting");
-                btnAction.setEnabled(false);
+                // ── Run YOLO detection ────────────────────────────────────────
+                showLoadingState("Detecting");
 
-                new Handler().postDelayed(() -> {
-                    boolean detectionSuccess = true; 
+                new Thread(() -> {
+                    List<YoloClassifier.DetectionResult> results = null;
 
-                    if (detectionSuccess) {
-                        isPalayDetected = true;
-                        tvInfoMessage.setText("Palay Detected!");
-                        tvInfoMessage.setVisibility(View.VISIBLE);
-                        confidenceLayout.setVisibility(View.VISIBLE);
-                        tvConfidenceValue.setText("98%"); 
-                        btnAction.setText("Analyze");
-                        btnRetake.setVisibility(View.VISIBLE);
-                    } else {
-                        isDetectionFailed = true;
-                        tvInfoMessage.setText("No Palay Detected!");
-                        tvInfoMessage.setVisibility(View.VISIBLE);
-                        btnAction.setText("Retake");
+                    if (loadedBitmap != null) {
+                        results = classifier.detect(loadedBitmap);
                     }
 
-                    progressBar.setVisibility(View.GONE);
-                    viewOverlay.setVisibility(View.GONE);
-                    btnAction.setEnabled(true);
-                }, 3000);
+                    final List<YoloClassifier.DetectionResult> finalResults = results;
+
+                    runOnUiThread(() -> {
+                        hideLoadingState();
+
+                        if (finalResults != null && !finalResults.isEmpty()) {
+                            // ── Palay detected ────────────────────────────────
+                            isPalayDetected = true;
+
+                            YoloClassifier.DetectionResult best = finalResults.get(0);
+                            int confidencePct = Math.round(best.confidence * 100);
+
+                            // Draw segmentation mask overlay on the image
+                            Bitmap withMask = classifier.renderMask(loadedBitmap, finalResults);
+                            ivDetectImage.setImageBitmap(withMask);
+
+                            tvInfoMessage.setText("Palay Detected!");
+                            tvInfoMessage.setVisibility(View.VISIBLE);
+
+                            confidenceLayout.setVisibility(View.VISIBLE);
+                            tvConfidenceValue.setText(confidencePct + "%");
+
+                            btnAction.setText("Analyze");
+                            btnRetake.setVisibility(View.VISIBLE);
+
+                        } else {
+                            // ── No palay detected ─────────────────────────────
+                            isDetectionFailed = true;
+
+                            tvInfoMessage.setText("No Palay Detected!");
+                            tvInfoMessage.setVisibility(View.VISIBLE);
+
+                            btnAction.setText("Retake");
+                            // btnRetake stays hidden; only the single "Retake" btnAction shows
+                        }
+                    });
+                }).start();
 
             } else {
-                progressBar.setVisibility(View.VISIBLE);
-                viewOverlay.setVisibility(View.VISIBLE);
-                btnAction.setText("Analyzing");
-                btnAction.setEnabled(false);
+                // ── Already detected — go to analysis ────────────────────────
+                showLoadingState("Analyzing");
                 btnRetake.setEnabled(false);
 
-                new Handler().postDelayed(() -> {
-                    Intent intent = new Intent(DetectActivity.this, AnalysisResultActivity.class);
-                    intent.putExtra("image_path", imagePath);
-                    
-                    intent.putExtra("disease_name", "Bacterial Leaf Blight");
-                    intent.putExtra("diseased_percentage", 15.0);
+                // Navigate to AnalysisResultActivity
+                // (keeping your existing intent extras — replace disease data
+                //  with real disease model results when ready)
+                Intent intent = new Intent(DetectActivity.this, AnalysisResultActivity.class);
+                intent.putExtra("image_path", imagePath);
+                intent.putExtra("disease_name", "Bacterial Leaf Blight");   // TODO: replace with real model output
+                intent.putExtra("diseased_percentage", 15.0);               // TODO: replace with real model output
+                startActivity(intent);
 
-                    startActivity(intent);
-
-                    progressBar.setVisibility(View.GONE);
-                    viewOverlay.setVisibility(View.GONE);
-                    btnAction.setText("Analyze");
-                    btnAction.setEnabled(true);
-                    btnRetake.setEnabled(true);
-                }, 3000);
+                // Reset UI state for when user navigates back
+                hideLoadingState();
+                btnRetake.setEnabled(true);
             }
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void showLoadingState(String buttonLabel) {
+        progressBar.setVisibility(View.VISIBLE);
+        viewOverlay.setVisibility(View.VISIBLE);
+        btnAction.setText(buttonLabel);
+        btnAction.setEnabled(false);
+    }
+
+    private void hideLoadingState() {
+        progressBar.setVisibility(View.GONE);
+        viewOverlay.setVisibility(View.GONE);
+        btnAction.setEnabled(true);
+    }
+
+    private void goToCamera() {
+        Intent intent = new Intent(DetectActivity.this, CameraActivity.class);
+        startActivity(intent);
+        finish();
+    }
+
+    private Bitmap loadBitmapFromPath(String path) {
+        if (path == null) {
+            Log.e(TAG, "image_path extra is null");
+            return null;
+        }
+        File imgFile = new File(path);
+        if (!imgFile.exists()) {
+            Log.e(TAG, "Image file not found: " + path);
+            return null;
+        }
+        Bitmap bmp = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+        if (bmp == null) Log.e(TAG, "Failed to decode bitmap: " + path);
+        return bmp;
     }
 
     private void deleteCurrentPhoto() {
         if (imagePath != null) {
             File imgFile = new File(imagePath);
-            if (imgFile.exists()) {
-                imgFile.delete();
-            }
+            if (imgFile.exists()) imgFile.delete();
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Lifecycle
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (classifier != null) classifier.close();
     }
 }

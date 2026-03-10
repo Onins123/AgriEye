@@ -42,19 +42,11 @@
             android:exported="true" />
 
         <activity
-            android:name=".ResultActivity"
-            android:exported="true" />
-
-        <activity
             android:name=".AnalysisResultActivity"
             android:exported="false" />
 
         <activity
             android:name=".DetectActivity"
-            android:exported="true" />
-
-        <activity
-            android:name=".NoDetectActivity"
             android:exported="true" />
 
         <activity
