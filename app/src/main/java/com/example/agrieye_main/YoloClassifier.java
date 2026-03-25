@@ -22,10 +22,10 @@ import java.util.List;
 public class YoloClassifier {
 
     private static final String TAG        = "YoloClassifier";
-    private static final String MODEL_FILE = "best_float32.tflite";
+    private static final String MODEL_FILE = "best.tflite";
 
     private static final int   INPUT_SIZE           = 640;
-    private static final int   NUM_CLASSES          = 2;    // 2 classes: 4+2+32=38 ✓
+    private static final int   NUM_CLASSES          = 1;    // 1 class: 4+1+32=37 ✓
     private static final float CONFIDENCE_THRESHOLD = 0.75f; // lowered for diagnosis
     private static final float IOU_THRESHOLD        = 0.45f;
 
@@ -118,6 +118,12 @@ public class YoloClassifier {
         }
     }
 
+    // Proto masks stored after detect() so renderMask() can use them
+    // Shape: [1, 32, 160, 160] — YOLOv8-seg always outputs 160×160 proto masks
+    private float[][][][] protoMasks  = null;
+    private static final int NUM_MASK_COEFFICIENTS = 32;
+    private static final int PROTO_SIZE            = 160;
+
     // ── Main detection ────────────────────────────────────────────────────────
     public List<DetectionResult> detect(Bitmap bitmap) {
         List<DetectionResult> results = new ArrayList<>();
@@ -127,26 +133,40 @@ public class YoloClassifier {
             return results;
         }
 
-        // 1. Resize
+        // 1. Resize to 640×640
         Bitmap resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true);
 
         // 2. Bitmap → ByteBuffer
         ByteBuffer inputBuffer = convertBitmapToByteBuffer(resized);
 
-        // 3. Allocate output using ACTUAL runtime dimensions
-        float[][][] output = new float[1][outputDim1][outputDim2];
+        // 3. Allocate BOTH output tensors:
+        //    Output 0: [1, 37, 8400]       — box coords + class score + 32 coefficients
+        //    Output 1: [1, 32, 160, 160]   — proto masks (the actual segmentation maps)
+        float[][][]   outputBoxes = new float[1][outputDim1][outputDim2];
+        protoMasks                = new float[1][NUM_MASK_COEFFICIENTS][PROTO_SIZE][PROTO_SIZE];
 
-        // 4. Run inference
+        // 4. Run inference using runForMultipleInputsOutputs to get both tensors
         try {
-            interpreter.run(inputBuffer, output);
+            Object[] inputs = {inputBuffer};
+            java.util.Map<Integer, Object> outputs = new java.util.HashMap<>();
+            outputs.put(0, outputBoxes);
+            outputs.put(1, protoMasks);
+            interpreter.runForMultipleInputsOutputs(inputs, outputs);
         } catch (Exception e) {
-            Log.e(TAG, "Inference failed: " + e.getMessage());
-            Log.e(TAG, "Expected output shape: [1][" + outputDim1 + "][" + outputDim2 + "]");
-            return results;
+            Log.e(TAG, "Dual-output inference failed: " + e.getMessage());
+            // Fallback: single output only (no segmentation, just bounding boxes)
+            try {
+                protoMasks = null;
+                interpreter.run(inputBuffer, outputBoxes);
+                Log.w(TAG, "Fallback to single output — no segmentation mask");
+            } catch (Exception e2) {
+                Log.e(TAG, "Fallback also failed: " + e2.getMessage());
+                return results;
+            }
         }
 
-        // 5. Parse
-        return applyNMS(parseOutput(output[0]));
+        // 5. Parse and return detections
+        return applyNMS(parseOutput(outputBoxes[0]));
     }
 
     // ── Convert Bitmap to float32 ByteBuffer normalized [0,1] ────────────────
@@ -177,24 +197,18 @@ public class YoloClassifier {
         int numMaskCoeffs = Math.max(0, numFeatures - 4 - NUM_CLASSES);
 
         // CLASS INDEX REFERENCE (from data.yaml):
-        // class 0 = "Not Palay"  → feature row index 4
-        // class 1 = "Palay"      → feature row index 5
-        final int NOT_PALAY_IDX = 0;
-        final int PALAY_IDX     = 1;
+        // class 0 = "Palay" → feature row index 4
+        // (only 1 class, so no comparison needed)
 
-        // ── Log top scores per class for diagnosis ────────────────────────────
-        float highestNotPalay = -Float.MAX_VALUE;
-        float highestPalay    = -Float.MAX_VALUE;
+        // ── Log highest score for diagnosis ──────────────────────────────────
+        float highestPalay = -Float.MAX_VALUE;
         for (int i = 0; i < numDetections; i++) {
-            float scoreNotPalay = isTransposed ? output[i][4] : output[4][i];
-            float scorePalay    = isTransposed ? output[i][5] : output[5][i];
-            if (scoreNotPalay > highestNotPalay) highestNotPalay = scoreNotPalay;
-            if (scorePalay    > highestPalay)    highestPalay    = scorePalay;
+            float score = isTransposed ? output[i][4] : output[4][i];
+            if (score > highestPalay) highestPalay = score;
         }
         Log.d(TAG, "──────────────────────────────────────────────");
-        Log.d(TAG, "Highest 'Not Palay' score : " + highestNotPalay);
-        Log.d(TAG, "Highest 'Palay'     score : " + highestPalay);
-        Log.d(TAG, "Confidence threshold      : " + CONFIDENCE_THRESHOLD);
+        Log.d(TAG, "Highest 'Palay' score : " + highestPalay);
+        Log.d(TAG, "Confidence threshold  : " + CONFIDENCE_THRESHOLD);
         Log.d(TAG, "──────────────────────────────────────────────");
 
         for (int i = 0; i < numDetections; i++) {
@@ -203,31 +217,11 @@ public class YoloClassifier {
             float w  = isTransposed ? output[i][2] : output[2][i];
             float h  = isTransposed ? output[i][3] : output[3][i];
 
-            // Read BOTH class scores explicitly
-            float scoreNotPalay = isTransposed ? output[i][4] : output[4][i]; // class 0
-            float scorePalay    = isTransposed ? output[i][5] : output[5][i]; // class 1
+            // Only 1 class score at row index 4
+            float score = isTransposed ? output[i][4] : output[4][i];
 
-            // The winning class is whichever score is higher
-            float maxScore;
-            int   bestClass;
-            if (scorePalay >= scoreNotPalay) {
-                maxScore  = scorePalay;
-                bestClass = PALAY_IDX;
-            } else {
-                maxScore  = scoreNotPalay;
-                bestClass = NOT_PALAY_IDX;
-            }
-
-            // Skip boxes below threshold
-            if (maxScore < CONFIDENCE_THRESHOLD) continue;
-
-            // ── IMPORTANT: skip "Not Palay" boxes entirely ────────────────────
-            // We only want to surface Palay detections to the UI.
-            // "Not Palay" boxes are logged but not added as results.
-            if (bestClass == NOT_PALAY_IDX) {
-                Log.d(TAG, "Skipping 'Not Palay' box  conf=" + maxScore);
-                continue;
-            }
+            // Skip boxes below confidence threshold
+            if (score < CONFIDENCE_THRESHOLD) continue;
 
             float x1 = Math.max(0f, cx - w / 2f);
             float y1 = Math.max(0f, cy - h / 2f);
@@ -240,8 +234,9 @@ public class YoloClassifier {
                 maskCoeffs[m] = isTransposed ? output[i][fi] : output[fi][i];
             }
 
-            String label = getLabel(bestClass) + String.format(" %.0f%%", maxScore * 100);
-            candidates.add(new DetectionResult(new RectF(x1, y1, x2, y2), maxScore, label, maskCoeffs));
+            // class 0 = Palay, always label it "Palay"
+            String label = "Palay" + String.format(" %.0f%%", score * 100);
+            candidates.add(new DetectionResult(new RectF(x1, y1, x2, y2), score, label, maskCoeffs));
         }
 
         Log.d(TAG, "Candidates after threshold: " + candidates.size());
@@ -249,8 +244,8 @@ public class YoloClassifier {
     }
 
     private String getLabel(int classIndex) {
-        // Matches data.yaml: class 0 = Not Palay, class 1 = Palay
-        String[] labels = {"Not Palay", "Palay"};
+        // Only 1 class — class 0 = Palay (match your data.yaml)
+        String[] labels = {"Palay"};
         return (classIndex >= 0 && classIndex < labels.length) ? labels[classIndex] : "Unknown";
     }
 
@@ -283,46 +278,114 @@ public class YoloClassifier {
         return inter / (aA + bA - inter + 1e-6f);
     }
 
-    // ── Draw bounding boxes on the bitmap ─────────────────────────────────────
+    // ── Render segmentation mask + bounding box onto the bitmap ──────────────
+    //
+    // HOW SEGMENTATION WORKS:
+    // Each detected box has 32 "mask coefficients" (weights).
+    // The model also outputs 32 "proto masks" each 160×160 pixels.
+    // Final mask = sum of (coefficient[i] × proto[i]) for all 32 protos
+    // Then apply sigmoid to get values 0.0–1.0
+    // Then threshold at 0.5: above = inside the leaf, below = outside
+    //
     public Bitmap renderMask(Bitmap original, List<DetectionResult> results) {
         Bitmap mutable = original.copy(Bitmap.Config.ARGB_8888, true);
         Canvas canvas  = new Canvas(mutable);
 
+        int W = mutable.getWidth();
+        int H = mutable.getHeight();
+
         Paint boxPaint = new Paint();
-        boxPaint.setColor(Color.argb(200, 0, 200, 80));
+        boxPaint.setColor(Color.argb(220, 0, 210, 80));
         boxPaint.setStyle(Paint.Style.STROKE);
         boxPaint.setStrokeWidth(5f);
 
-        Paint fillPaint = new Paint();
-        fillPaint.setColor(Color.argb(40, 0, 200, 80));
-        fillPaint.setStyle(Paint.Style.FILL);
-
         Paint bgPaint = new Paint();
-        bgPaint.setColor(Color.argb(180, 0, 120, 40));
+        bgPaint.setColor(Color.argb(180, 0, 130, 40));
         bgPaint.setStyle(Paint.Style.FILL);
 
         Paint textPaint = new Paint();
         textPaint.setColor(Color.WHITE);
-        textPaint.setTextSize(36f);
+        textPaint.setTextSize(38f);
         textPaint.setAntiAlias(true);
         textPaint.setFakeBoldText(true);
 
-        int W = mutable.getWidth();
-        int H = mutable.getHeight();
-
         for (DetectionResult r : results) {
-            float l = r.boundingBox.left   * W;
-            float t = r.boundingBox.top    * H;
-            float ri = r.boundingBox.right * W;
-            float b = r.boundingBox.bottom * H;
 
-            canvas.drawRect(l, t, ri, b, fillPaint);
+            // ── Step 1: Draw the segmentation mask if proto masks are available ──
+            if (protoMasks != null && r.maskCoefficients != null
+                    && r.maskCoefficients.length == NUM_MASK_COEFFICIENTS) {
+
+                // Bounding box in pixel coordinates (used to crop the mask)
+                int bx1 = (int)(r.boundingBox.left   * W);
+                int by1 = (int)(r.boundingBox.top    * H);
+                int bx2 = (int)(r.boundingBox.right  * W);
+                int by2 = (int)(r.boundingBox.bottom * H);
+
+                // Build the 160×160 mask by combining coefficients × proto masks
+                // maskMap[row][col] = sum over 32 protos of (coeff[k] × proto[k][row][col])
+                float[][] maskMap = new float[PROTO_SIZE][PROTO_SIZE];
+                for (int k = 0; k < NUM_MASK_COEFFICIENTS; k++) {
+                    float coeff = r.maskCoefficients[k];
+                    for (int py = 0; py < PROTO_SIZE; py++) {
+                        for (int px = 0; px < PROTO_SIZE; px++) {
+                            maskMap[py][px] += coeff * protoMasks[0][k][py][px];
+                        }
+                    }
+                }
+
+                // Paint each 160×160 pixel that is "inside the leaf" onto the full image
+                // We scale from 160×160 proto space → actual image pixel space
+                float scaleX = (float) W / PROTO_SIZE;
+                float scaleY = (float) H / PROTO_SIZE;
+
+                Paint maskPaint = new Paint();
+                maskPaint.setStyle(Paint.Style.FILL);
+
+                for (int py = 0; py < PROTO_SIZE; py++) {
+                    for (int px = 0; px < PROTO_SIZE; px++) {
+
+                        // Sigmoid: converts raw score → 0.0 to 1.0
+                        float sigmoidVal = 1f / (1f + (float) Math.exp(-maskMap[py][px]));
+
+                        // Threshold: only paint pixels that are "inside the leaf"
+                        if (sigmoidVal < 0.5f) continue;
+
+                        // Convert proto pixel → image pixel coordinates
+                        int imgX1 = (int)(px       * scaleX);
+                        int imgY1 = (int)(py       * scaleY);
+                        int imgX2 = (int)((px + 1) * scaleX);
+                        int imgY2 = (int)((py + 1) * scaleY);
+
+                        // Crop mask to stay inside the bounding box
+                        imgX1 = Math.max(imgX1, bx1);
+                        imgY1 = Math.max(imgY1, by1);
+                        imgX2 = Math.min(imgX2, bx2);
+                        imgY2 = Math.min(imgY2, by2);
+
+                        if (imgX2 <= imgX1 || imgY2 <= imgY1) continue;
+
+                        // Semi-transparent green overlay on the leaf shape
+                        // Alpha scales with sigmoid confidence (more certain = more opaque)
+                        int alpha = (int)(sigmoidVal * 120); // max 120/255 opacity
+                        maskPaint.setColor(Color.argb(alpha, 0, 210, 80));
+                        canvas.drawRect(imgX1, imgY1, imgX2, imgY2, maskPaint);
+                    }
+                }
+            }
+
+            // ── Step 2: Draw bounding box border ─────────────────────────────────
+            float l  = r.boundingBox.left   * W;
+            float t  = r.boundingBox.top    * H;
+            float ri = r.boundingBox.right  * W;
+            float b  = r.boundingBox.bottom * H;
             canvas.drawRect(l, t, ri, b, boxPaint);
 
-            float tw = textPaint.measureText(r.label) + 20f;
-            canvas.drawRect(l, t - 50f, l + tw, t, bgPaint);
-            canvas.drawText(r.label, l + 10f, t - 12f, textPaint);
+            // ── Step 3: Draw label background + text ─────────────────────────────
+            float textW = textPaint.measureText(r.label) + 24f;
+            canvas.drawRect(l, t - 52f, l + textW, t, bgPaint);
+            canvas.drawText(r.label, l + 12f, t - 14f, textPaint);
         }
+
         return mutable;
     }
 
