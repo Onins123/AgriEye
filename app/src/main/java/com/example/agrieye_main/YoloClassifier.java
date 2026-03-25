@@ -338,106 +338,66 @@ public class YoloClassifier {
     //   6. Scale each proto pixel → image pixel coordinates and paint green.
     //
     public Bitmap renderMask(Bitmap original, List<DetectionResult> results) {
+        // Always work on a mutable copy of the ORIGINAL bitmap (not the 640x640 resized one)
+        // The bounding box coordinates are normalized [0,1] so they scale to any size correctly
         Bitmap mutable = original.copy(Bitmap.Config.ARGB_8888, true);
         Canvas canvas  = new Canvas(mutable);
 
         int W = mutable.getWidth();
         int H = mutable.getHeight();
 
-        Paint boxPaint = new Paint();
-        boxPaint.setColor(Color.argb(220, 0, 210, 80));
-        boxPaint.setStyle(Paint.Style.STROKE);
-        boxPaint.setStrokeWidth(5f);
+        // Scale stroke width relative to image size so it's visible on any resolution
+        float strokeWidth = Math.max(W, H) * 0.005f; // 0.5% of the larger dimension
+        float textSize    = Math.max(W, H) * 0.04f;  // 4% of the larger dimension
 
+        // Semi-transparent green fill inside the box
+        Paint fillPaint = new Paint();
+        fillPaint.setColor(Color.argb(60, 0, 220, 80));
+        fillPaint.setStyle(Paint.Style.FILL);
+
+        // Solid green border
+        Paint boxPaint = new Paint();
+        boxPaint.setColor(Color.argb(230, 0, 220, 80));
+        boxPaint.setStyle(Paint.Style.STROKE);
+        boxPaint.setStrokeWidth(strokeWidth);
+        boxPaint.setAntiAlias(true);
+
+        // Dark green label background
         Paint bgPaint = new Paint();
-        bgPaint.setColor(Color.argb(180, 0, 130, 40));
+        bgPaint.setColor(Color.argb(200, 0, 100, 40));
         bgPaint.setStyle(Paint.Style.FILL);
 
+        // White label text
         Paint textPaint = new Paint();
         textPaint.setColor(Color.WHITE);
-        textPaint.setTextSize(38f);
+        textPaint.setTextSize(textSize);
         textPaint.setAntiAlias(true);
         textPaint.setFakeBoldText(true);
 
-        Paint maskPaint = new Paint();
-        maskPaint.setStyle(Paint.Style.FILL);
-
-        boolean hasProto = (protoMasksFirst != null || protoMasksLast != null);
-
         for (DetectionResult r : results) {
+            // Convert normalized [0,1] coords → actual pixel coords on the ORIGINAL image
+            float left   = r.boundingBox.left   * W;
+            float top    = r.boundingBox.top    * H;
+            float right  = r.boundingBox.right  * W;
+            float bottom = r.boundingBox.bottom * H;
 
-            // ── Step 1: Build and draw segmentation mask ──────────────────────
-            if (hasProto && r.maskCoefficients != null
-                    && r.maskCoefficients.length == NUM_MASK_COEFFICIENTS) {
+            // Draw semi-transparent fill
+            canvas.drawRect(left, top, right, bottom, fillPaint);
 
-                // Bounding box in image pixel space
-                // Coordinates from parseOutput() are normalized → multiply by image size
-                int bx1 = Math.max(0, (int)(r.boundingBox.left   * W));
-                int by1 = Math.max(0, (int)(r.boundingBox.top    * H));
-                int bx2 = Math.min(W, (int)(r.boundingBox.right  * W));
-                int by2 = Math.min(H, (int)(r.boundingBox.bottom * H));
+            // Draw border
+            canvas.drawRect(left, top, right, bottom, boxPaint);
 
-                // Build the protoH × protoW combined mask
-                float[][] maskMap = new float[protoH][protoW];
-                for (int k = 0; k < NUM_MASK_COEFFICIENTS; k++) {
-                    float coeff = r.maskCoefficients[k];
-                    if (coeff == 0f) continue; // skip zero coefficients for speed
-                    for (int py = 0; py < protoH; py++) {
-                        for (int px = 0; px < protoW; px++) {
-                            maskMap[py][px] += coeff * getProto(k, py, px);
-                        }
-                    }
-                }
+            // Draw label background + text
+            float labelHeight = textSize + 16f;
+            float labelTop    = (top - labelHeight > 0) ? top - labelHeight : bottom;
+            float labelWidth  = textPaint.measureText(r.label) + 24f;
 
-                // Scale from proto space → image pixel space
-                // Proto space covers the full INPUT_SIZE (640×640), so:
-                //   protoPixel (px, py) corresponds to image region:
-                //   imgX = px * (W / protoW) ... (px+1) * (W / protoW)
-                float scaleX = (float) W / protoW;
-                float scaleY = (float) H / protoH;
-
-                int painted = 0;
-                for (int py = 0; py < protoH; py++) {
-                    for (int px = 0; px < protoW; px++) {
-                        float sigmoidVal = 1f / (1f + (float) Math.exp(-maskMap[py][px]));
-                        if (sigmoidVal < 0.5f) continue;
-
-                        // Proto pixel → image pixel region
-                        int imgX1 = (int)(px       * scaleX);
-                        int imgY1 = (int)(py       * scaleY);
-                        int imgX2 = (int)((px + 1) * scaleX);
-                        int imgY2 = (int)((py + 1) * scaleY);
-
-                        // Clamp to bounding box — this ensures mask stays within detection
-                        imgX1 = Math.max(imgX1, bx1);
-                        imgY1 = Math.max(imgY1, by1);
-                        imgX2 = Math.min(imgX2, bx2);
-                        imgY2 = Math.min(imgY2, by2);
-
-                        if (imgX2 <= imgX1 || imgY2 <= imgY1) continue;
-
-                        int alpha = (int)(sigmoidVal * 140); // up to 140/255 ≈ 55% opacity
-                        maskPaint.setColor(Color.argb(alpha, 0, 210, 80));
-                        canvas.drawRect(imgX1, imgY1, imgX2, imgY2, maskPaint);
-                        painted++;
-                    }
-                }
-                Log.d(TAG, "Mask pixels painted: " + painted + " for detection: " + r.label);
-            } else {
-                Log.w(TAG, "No proto masks available for this detection — skipping mask render.");
-            }
-
-            // ── Step 2: Draw bounding box border ──────────────────────────────
-            float l  = r.boundingBox.left   * W;
-            float t  = r.boundingBox.top    * H;
-            float ri = r.boundingBox.right  * W;
-            float b  = r.boundingBox.bottom * H;
-            canvas.drawRect(l, t, ri, b, boxPaint);
-
-            // ── Step 3: Draw label background + text ──────────────────────────
-            float textW = textPaint.measureText(r.label) + 24f;
-            canvas.drawRect(l, t - 52f, l + textW, t, bgPaint);
-            canvas.drawText(r.label, l + 12f, t - 14f, textPaint);
+            canvas.drawRoundRect(
+                    left, labelTop,
+                    left + labelWidth, labelTop + labelHeight,
+                    8f, 8f, bgPaint
+            );
+            canvas.drawText(r.label, left + 12f, labelTop + labelHeight - 8f, textPaint);
         }
 
         return mutable;
