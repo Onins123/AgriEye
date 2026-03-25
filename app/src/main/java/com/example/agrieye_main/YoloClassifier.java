@@ -22,27 +22,39 @@ import java.util.List;
 public class YoloClassifier {
 
     private static final String TAG        = "YoloClassifier";
-    private static final String MODEL_FILE = "best_float32.tflite";
+    private static final String MODEL_FILE = "best.tflite";
 
     private static final int   INPUT_SIZE           = 640;
-    private static final int   NUM_CLASSES          = 2;    // 2 classes: 4+2+32=38 ✓
-    private static final float CONFIDENCE_THRESHOLD = 0.75f; // lowered for diagnosis
+    private static final int   NUM_CLASSES          = 1;
+    private static final float CONFIDENCE_THRESHOLD = 0.75f; // lowered to catch real detections
     private static final float IOU_THRESHOLD        = 0.45f;
+    private static final int   NUM_MASK_COEFFICIENTS = 32;
 
     private Interpreter interpreter;
     private final Context context;
 
-    // Discovered at runtime from the model itself
-    private int  outputDim1    = -1;   // rows  (e.g. 37)
-    private int  outputDim2    = -1;   // cols  (e.g. 8400)
-    private boolean isTransposed = false; // true if model exports [8400, 37] instead of [37, 8400]
+    // Discovered at runtime from model tensor shapes
+    private int     outputDim1    = -1;   // e.g. 37  (features)
+    private int     outputDim2    = -1;   // e.g. 8400 (detections)
+    private boolean isTransposed  = false;
+
+    // Proto mask shape — read dynamically from the model
+    // Channels-first: [1, 32, 160, 160]  → protoChannelsFirst = true
+    // Channels-last:  [1, 160, 160, 32]  → protoChannelsFirst = false
+    private int     protoH             = 160;
+    private int     protoW             = 160;
+    private boolean protoChannelsFirst = true; // default; corrected in initialize()
+
+    // Stored after detect() so renderMask() can use them
+    private float[][][][] protoMasksFirst = null; // [1][32][H][W]
+    private float[][][][] protoMasksLast  = null; // [1][H][W][32]
 
     // ── Result container ──────────────────────────────────────────────────────
     public static class DetectionResult {
-        public RectF   boundingBox;
+        public RectF   boundingBox;      // normalized [0,1]
         public float   confidence;
         public String  label;
-        public float[] maskCoefficients;
+        public float[] maskCoefficients; // length 32
 
         public DetectionResult(RectF box, float conf, String lbl, float[] masks) {
             this.boundingBox      = box;
@@ -56,19 +68,17 @@ public class YoloClassifier {
         this.context = context;
     }
 
-    // ── Initialize — call once in Activity.onCreate ───────────────────────────
+    // ── Initialize ────────────────────────────────────────────────────────────
     public boolean initialize() {
         try {
             MappedByteBuffer modelBuffer = FileUtil.loadMappedFile(context, MODEL_FILE);
-
             Interpreter.Options options = new Interpreter.Options();
             options.setNumThreads(4);
             interpreter = new Interpreter(modelBuffer, options);
 
-            // ── Log ALL tensor shapes — copy these from Logcat and share them ──
             Log.d(TAG, "══════════════════════════════════════════════");
-            Log.d(TAG, "Number of INPUT  tensors: " + interpreter.getInputTensorCount());
-            Log.d(TAG, "Number of OUTPUT tensors: " + interpreter.getOutputTensorCount());
+            Log.d(TAG, "INPUT  tensors : " + interpreter.getInputTensorCount());
+            Log.d(TAG, "OUTPUT tensors : " + interpreter.getOutputTensorCount());
 
             int[] inShape = interpreter.getInputTensor(0).shape();
             Log.d(TAG, "INPUT[0]  shape: " + Arrays.toString(inShape));
@@ -78,27 +88,23 @@ public class YoloClassifier {
                 Log.d(TAG, "OUTPUT[" + i + "] shape: " + Arrays.toString(s));
             }
 
-            // Grab the primary output shape
+            // ── Parse Output[0]: detection tensor ────────────────────────────
             int[] outShape = interpreter.getOutputTensor(0).shape();
-
             if (outShape.length == 3) {
                 int d1 = outShape[1];
                 int d2 = outShape[2];
-                // YOLOv8-seg normal:     [1, 37,   8400] → d1=37,   d2=8400
-                // YOLOv8-seg transposed: [1, 8400, 37  ] → d1=8400, d2=37
+                // [1, 37, 8400] → features=37, detections=8400 → normal
+                // [1, 8400, 37] → detections=8400, features=37 → transposed
                 if (d1 < d2) {
-                    // Normal: rows=features (37), cols=detections (8400)
-                    outputDim1   = d1;
-                    outputDim2   = d2;
+                    outputDim1   = d1;   // 37
+                    outputDim2   = d2;   // 8400
                     isTransposed = false;
                 } else {
-                    // Transposed: rows=detections (8400), cols=features (37)
-                    outputDim1   = d1;
-                    outputDim2   = d2;
+                    outputDim1   = d1;   // 8400
+                    outputDim2   = d2;   // 37
                     isTransposed = true;
                 }
             } else if (outShape.length == 2) {
-                // Edge case: [8400, 37] without batch dim
                 outputDim1   = outShape[0];
                 outputDim2   = outShape[1];
                 isTransposed = (outShape[0] > outShape[1]);
@@ -107,9 +113,34 @@ public class YoloClassifier {
             Log.d(TAG, "isTransposed=" + isTransposed
                     + "  outputDim1=" + outputDim1
                     + "  outputDim2=" + outputDim2);
-            Log.d(TAG, "══════════════════════════════════════════════");
+
+            // ── Parse Output[1]: proto mask tensor ───────────────────────────
+            if (interpreter.getOutputTensorCount() >= 2) {
+                int[] protoShape = interpreter.getOutputTensor(1).shape();
+                Log.d(TAG, "Proto mask shape: " + Arrays.toString(protoShape));
+                // Channels-first: [1, 32, 160, 160]
+                // Channels-last:  [1, 160, 160, 32]
+                if (protoShape.length == 4) {
+                    if (protoShape[1] == NUM_MASK_COEFFICIENTS) {
+                        // [1, 32, H, W]
+                        protoChannelsFirst = true;
+                        protoH = protoShape[2];
+                        protoW = protoShape[3];
+                    } else {
+                        // [1, H, W, 32]
+                        protoChannelsFirst = false;
+                        protoH = protoShape[1];
+                        protoW = protoShape[2];
+                    }
+                }
+                Log.d(TAG, "protoChannelsFirst=" + protoChannelsFirst
+                        + "  protoH=" + protoH + "  protoW=" + protoW);
+            } else {
+                Log.w(TAG, "Model has only 1 output tensor — segmentation masks NOT available.");
+            }
 
             Log.d(TAG, "Model loaded successfully.");
+            Log.d(TAG, "══════════════════════════════════════════════");
             return true;
 
         } catch (IOException e) {
@@ -123,35 +154,72 @@ public class YoloClassifier {
         List<DetectionResult> results = new ArrayList<>();
 
         if (interpreter == null || outputDim1 < 0) {
-            Log.e(TAG, "Interpreter not ready.");
+            Log.e(TAG, "Interpreter not ready — call initialize() first.");
             return results;
         }
 
-        // 1. Resize
+        // 1. Resize to 640×640
         Bitmap resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true);
 
-        // 2. Bitmap → ByteBuffer
+        // 2. Bitmap → float32 ByteBuffer
         ByteBuffer inputBuffer = convertBitmapToByteBuffer(resized);
 
-        // 3. Allocate output using ACTUAL runtime dimensions
-        float[][][] output = new float[1][outputDim1][outputDim2];
-
-        // 4. Run inference
-        try {
-            interpreter.run(inputBuffer, output);
-        } catch (Exception e) {
-            Log.e(TAG, "Inference failed: " + e.getMessage());
-            Log.e(TAG, "Expected output shape: [1][" + outputDim1 + "][" + outputDim2 + "]");
-            return results;
+        // 3. Allocate output tensors using EXACT shapes from the model
+        //    Output[0]: [1, outputDim1, outputDim2] — use the raw shape as reported
+        int[] outShape = interpreter.getOutputTensor(0).shape();
+        float[][][] outputBoxes;
+        if (outShape.length == 3) {
+            outputBoxes = new float[1][outShape[1]][outShape[2]];
+        } else {
+            // 2D fallback
+            outputBoxes = new float[1][outShape[0]][outShape[1]];
         }
 
-        // 5. Parse
-        return applyNMS(parseOutput(output[0]));
+        // Reset proto mask holders
+        protoMasksFirst = null;
+        protoMasksLast  = null;
+
+        boolean hasProtoOutput = interpreter.getOutputTensorCount() >= 2;
+
+        // 4. Run inference
+        if (hasProtoOutput) {
+            // Allocate proto mask buffer in the correct layout
+            if (protoChannelsFirst) {
+                protoMasksFirst = new float[1][NUM_MASK_COEFFICIENTS][protoH][protoW];
+            } else {
+                protoMasksLast = new float[1][protoH][protoW][NUM_MASK_COEFFICIENTS];
+            }
+
+            try {
+                Object[] inputs = {inputBuffer};
+                java.util.Map<Integer, Object> outputs = new java.util.HashMap<>();
+                outputs.put(0, outputBoxes);
+                outputs.put(1, protoChannelsFirst ? protoMasksFirst : protoMasksLast);
+                interpreter.runForMultipleInputsOutputs(inputs, outputs);
+                Log.d(TAG, "Dual-output inference succeeded.");
+            } catch (Exception e) {
+                // Log the FULL stack trace so you can see exactly what went wrong
+                Log.e(TAG, "Dual-output inference failed — see stack trace below:", e);
+                // Do NOT silently fall back. Return empty so you know something is wrong.
+                return results;
+            }
+        } else {
+            // Single-output model (no segmentation)
+            try {
+                interpreter.run(inputBuffer, outputBoxes);
+                Log.w(TAG, "Single-output mode — no segmentation masks.");
+            } catch (Exception e) {
+                Log.e(TAG, "Single-output inference failed:", e);
+                return results;
+            }
+        }
+
+        // 5. Parse detections and return after NMS
+        return applyNMS(parseOutput(outputBoxes[0]));
     }
 
-    // ── Convert Bitmap to float32 ByteBuffer normalized [0,1] ────────────────
+    // ── Convert Bitmap → float32 ByteBuffer [0,1] ────────────────────────────
     private ByteBuffer convertBitmapToByteBuffer(Bitmap bitmap) {
-        // 4 bytes (float32) × 3 channels (RGB) × 640 × 640
         ByteBuffer buffer = ByteBuffer.allocateDirect(4 * INPUT_SIZE * INPUT_SIZE * 3);
         buffer.order(ByteOrder.nativeOrder());
 
@@ -166,68 +234,40 @@ public class YoloClassifier {
         return buffer;
     }
 
-    // ── Parse output ──────────────────────────────────────────────────────────
+    // ── Parse output tensor into DetectionResult list ─────────────────────────
     private List<DetectionResult> parseOutput(float[][] output) {
         List<DetectionResult> candidates = new ArrayList<>();
 
-        // If transposed: output[detectionIdx][featureIdx]
-        // If normal:     output[featureIdx][detectionIdx]
         int numDetections = isTransposed ? outputDim1 : outputDim2;
         int numFeatures   = isTransposed ? outputDim2 : outputDim1;
         int numMaskCoeffs = Math.max(0, numFeatures - 4 - NUM_CLASSES);
 
-        // CLASS INDEX REFERENCE (from data.yaml):
-        // class 0 = "Not Palay"  → feature row index 4
-        // class 1 = "Palay"      → feature row index 5
-        final int NOT_PALAY_IDX = 0;
-        final int PALAY_IDX     = 1;
-
-        // ── Log top scores per class for diagnosis ────────────────────────────
-        float highestNotPalay = -Float.MAX_VALUE;
-        float highestPalay    = -Float.MAX_VALUE;
+        // Log the highest class score to diagnose threshold issues
+        float highest = -Float.MAX_VALUE;
         for (int i = 0; i < numDetections; i++) {
-            float scoreNotPalay = isTransposed ? output[i][4] : output[4][i];
-            float scorePalay    = isTransposed ? output[i][5] : output[5][i];
-            if (scoreNotPalay > highestNotPalay) highestNotPalay = scoreNotPalay;
-            if (scorePalay    > highestPalay)    highestPalay    = scorePalay;
+            float score = isTransposed ? output[i][4] : output[4][i];
+            if (score > highest) highest = score;
         }
         Log.d(TAG, "──────────────────────────────────────────────");
-        Log.d(TAG, "Highest 'Not Palay' score : " + highestNotPalay);
-        Log.d(TAG, "Highest 'Palay'     score : " + highestPalay);
-        Log.d(TAG, "Confidence threshold      : " + CONFIDENCE_THRESHOLD);
+        Log.d(TAG, "Highest Palay score : " + highest);
+        Log.d(TAG, "Confidence threshold: " + CONFIDENCE_THRESHOLD);
+        Log.d(TAG, "numDetections=" + numDetections + "  numFeatures=" + numFeatures
+                + "  numMaskCoeffs=" + numMaskCoeffs);
         Log.d(TAG, "──────────────────────────────────────────────");
 
         for (int i = 0; i < numDetections; i++) {
+            // cx, cy, w, h are normalized to [0,1] relative to INPUT_SIZE
             float cx = isTransposed ? output[i][0] : output[0][i];
             float cy = isTransposed ? output[i][1] : output[1][i];
             float w  = isTransposed ? output[i][2] : output[2][i];
             float h  = isTransposed ? output[i][3] : output[3][i];
 
-            // Read BOTH class scores explicitly
-            float scoreNotPalay = isTransposed ? output[i][4] : output[4][i]; // class 0
-            float scorePalay    = isTransposed ? output[i][5] : output[5][i]; // class 1
+            // Normalize if values appear to be in pixel space (> 1.5 is a good heuristic)
+            if (cx > 1.5f) { cx /= INPUT_SIZE; cy /= INPUT_SIZE;
+                w  /= INPUT_SIZE; h  /= INPUT_SIZE; }
 
-            // The winning class is whichever score is higher
-            float maxScore;
-            int   bestClass;
-            if (scorePalay >= scoreNotPalay) {
-                maxScore  = scorePalay;
-                bestClass = PALAY_IDX;
-            } else {
-                maxScore  = scoreNotPalay;
-                bestClass = NOT_PALAY_IDX;
-            }
-
-            // Skip boxes below threshold
-            if (maxScore < CONFIDENCE_THRESHOLD) continue;
-
-            // ── IMPORTANT: skip "Not Palay" boxes entirely ────────────────────
-            // We only want to surface Palay detections to the UI.
-            // "Not Palay" boxes are logged but not added as results.
-            if (bestClass == NOT_PALAY_IDX) {
-                Log.d(TAG, "Skipping 'Not Palay' box  conf=" + maxScore);
-                continue;
-            }
+            float score = isTransposed ? output[i][4] : output[4][i];
+            if (score < CONFIDENCE_THRESHOLD) continue;
 
             float x1 = Math.max(0f, cx - w / 2f);
             float y1 = Math.max(0f, cy - h / 2f);
@@ -240,18 +280,12 @@ public class YoloClassifier {
                 maskCoeffs[m] = isTransposed ? output[i][fi] : output[fi][i];
             }
 
-            String label = getLabel(bestClass) + String.format(" %.0f%%", maxScore * 100);
-            candidates.add(new DetectionResult(new RectF(x1, y1, x2, y2), maxScore, label, maskCoeffs));
+            String label = "Palay " + String.format("%.0f%%", score * 100);
+            candidates.add(new DetectionResult(new RectF(x1, y1, x2, y2), score, label, maskCoeffs));
         }
 
         Log.d(TAG, "Candidates after threshold: " + candidates.size());
         return candidates;
-    }
-
-    private String getLabel(int classIndex) {
-        // Matches data.yaml: class 0 = Not Palay, class 1 = Palay
-        String[] labels = {"Not Palay", "Palay"};
-        return (classIndex >= 0 && classIndex < labels.length) ? labels[classIndex] : "Unknown";
     }
 
     // ── NMS ───────────────────────────────────────────────────────────────────
@@ -275,15 +309,34 @@ public class YoloClassifier {
     }
 
     private float computeIoU(RectF a, RectF b) {
-        float iL = Math.max(a.left, b.left),  iT = Math.max(a.top, b.top);
-        float iR = Math.min(a.right, b.right), iB = Math.min(a.bottom, b.bottom);
+        float iL = Math.max(a.left, b.left),   iT = Math.max(a.top, b.top);
+        float iR = Math.min(a.right, b.right),  iB = Math.min(a.bottom, b.bottom);
         float inter = Math.max(0, iR - iL) * Math.max(0, iB - iT);
         float aA = (a.right - a.left) * (a.bottom - a.top);
         float bA = (b.right - b.left) * (b.bottom - b.top);
         return inter / (aA + bA - inter + 1e-6f);
     }
 
-    // ── Draw bounding boxes on the bitmap ─────────────────────────────────────
+    // ── Helper: get a proto value regardless of channel layout ───────────────
+    private float getProto(int k, int py, int px) {
+        if (protoChannelsFirst && protoMasksFirst != null) {
+            return protoMasksFirst[0][k][py][px];
+        } else if (!protoChannelsFirst && protoMasksLast != null) {
+            return protoMasksLast[0][py][px][k];
+        }
+        return 0f;
+    }
+
+    // ── Render segmentation mask + bounding box ───────────────────────────────
+    //
+    // HOW IT WORKS:
+    //   1. For each detected object, take its 32 mask coefficients.
+    //   2. Multiply each by the corresponding proto map (protoH × protoW).
+    //   3. Sum all 32 → raw mask map of size protoH × protoW.
+    //   4. Apply sigmoid → values 0..1.
+    //   5. Threshold at 0.5 → binary mask.
+    //   6. Scale each proto pixel → image pixel coordinates and paint green.
+    //
     public Bitmap renderMask(Bitmap original, List<DetectionResult> results) {
         // Always work on a mutable copy of the ORIGINAL bitmap (not the 640x640 resized one)
         // The bounding box coordinates are normalized [0,1] so they scale to any size correctly
@@ -356,5 +409,7 @@ public class YoloClassifier {
             interpreter.close();
             interpreter = null;
         }
+        protoMasksFirst = null;
+        protoMasksLast  = null;
     }
 }
