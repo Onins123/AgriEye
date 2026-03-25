@@ -285,44 +285,68 @@ public class YoloClassifier {
 
     // ── Draw bounding boxes on the bitmap ─────────────────────────────────────
     public Bitmap renderMask(Bitmap original, List<DetectionResult> results) {
+        // Always work on a mutable copy of the ORIGINAL bitmap (not the 640x640 resized one)
+        // The bounding box coordinates are normalized [0,1] so they scale to any size correctly
         Bitmap mutable = original.copy(Bitmap.Config.ARGB_8888, true);
         Canvas canvas  = new Canvas(mutable);
-
-        Paint boxPaint = new Paint();
-        boxPaint.setColor(Color.argb(200, 0, 200, 80));
-        boxPaint.setStyle(Paint.Style.STROKE);
-        boxPaint.setStrokeWidth(5f);
-
-        Paint fillPaint = new Paint();
-        fillPaint.setColor(Color.argb(40, 0, 200, 80));
-        fillPaint.setStyle(Paint.Style.FILL);
-
-        Paint bgPaint = new Paint();
-        bgPaint.setColor(Color.argb(180, 0, 120, 40));
-        bgPaint.setStyle(Paint.Style.FILL);
-
-        Paint textPaint = new Paint();
-        textPaint.setColor(Color.WHITE);
-        textPaint.setTextSize(36f);
-        textPaint.setAntiAlias(true);
-        textPaint.setFakeBoldText(true);
 
         int W = mutable.getWidth();
         int H = mutable.getHeight();
 
+        // Scale stroke width relative to image size so it's visible on any resolution
+        float strokeWidth = Math.max(W, H) * 0.005f; // 0.5% of the larger dimension
+        float textSize    = Math.max(W, H) * 0.04f;  // 4% of the larger dimension
+
+        // Semi-transparent green fill inside the box
+        Paint fillPaint = new Paint();
+        fillPaint.setColor(Color.argb(60, 0, 220, 80));
+        fillPaint.setStyle(Paint.Style.FILL);
+
+        // Solid green border
+        Paint boxPaint = new Paint();
+        boxPaint.setColor(Color.argb(230, 0, 220, 80));
+        boxPaint.setStyle(Paint.Style.STROKE);
+        boxPaint.setStrokeWidth(strokeWidth);
+        boxPaint.setAntiAlias(true);
+
+        // Dark green label background
+        Paint bgPaint = new Paint();
+        bgPaint.setColor(Color.argb(200, 0, 100, 40));
+        bgPaint.setStyle(Paint.Style.FILL);
+
+        // White label text
+        Paint textPaint = new Paint();
+        textPaint.setColor(Color.WHITE);
+        textPaint.setTextSize(textSize);
+        textPaint.setAntiAlias(true);
+        textPaint.setFakeBoldText(true);
+
         for (DetectionResult r : results) {
-            float l = r.boundingBox.left   * W;
-            float t = r.boundingBox.top    * H;
-            float ri = r.boundingBox.right * W;
-            float b = r.boundingBox.bottom * H;
+            // Convert normalized [0,1] coords → actual pixel coords on the ORIGINAL image
+            float left   = r.boundingBox.left   * W;
+            float top    = r.boundingBox.top    * H;
+            float right  = r.boundingBox.right  * W;
+            float bottom = r.boundingBox.bottom * H;
 
-            canvas.drawRect(l, t, ri, b, fillPaint);
-            canvas.drawRect(l, t, ri, b, boxPaint);
+            // Draw semi-transparent fill
+            canvas.drawRect(left, top, right, bottom, fillPaint);
 
-            float tw = textPaint.measureText(r.label) + 20f;
-            canvas.drawRect(l, t - 50f, l + tw, t, bgPaint);
-            canvas.drawText(r.label, l + 10f, t - 12f, textPaint);
+            // Draw border
+            canvas.drawRect(left, top, right, bottom, boxPaint);
+
+            // Draw label background + text
+            float labelHeight = textSize + 16f;
+            float labelTop    = (top - labelHeight > 0) ? top - labelHeight : bottom;
+            float labelWidth  = textPaint.measureText(r.label) + 24f;
+
+            canvas.drawRoundRect(
+                    left, labelTop,
+                    left + labelWidth, labelTop + labelHeight,
+                    8f, 8f, bgPaint
+            );
+            canvas.drawText(r.label, left + 12f, labelTop + labelHeight - 8f, textPaint);
         }
+
         return mutable;
     }
 
