@@ -126,6 +126,7 @@ public class CameraActivity extends AppCompatActivity {
                     if (savedFile != null) {
                         android.content.Intent intent = new android.content.Intent(CameraActivity.this, DetectActivity.class);
                         intent.putExtra("image_path", savedFile.getAbsolutePath());
+                        intent.putExtra("is_from_camera", true);
                         startActivity(intent);
                         finish();
                     } else {

@@ -38,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
                         if (savedFile != null) {
                             Intent intent = new Intent(MainActivity.this, DetectActivity.class);
                             intent.putExtra("image_path", savedFile.getAbsolutePath());
+                            intent.putExtra("is_from_camera", false);
                             startActivity(intent);
                         } else {
                             Toast.makeText(MainActivity.this, "Failed to save image", Toast.LENGTH_SHORT).show();
@@ -90,15 +91,3 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-

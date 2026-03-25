@@ -11,12 +11,20 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import java.io.InputStream;
+import java.io.OutputStream;
+import android.net.Uri;
 
 public class DetectActivity extends AppCompatActivity {
 
@@ -27,6 +35,7 @@ public class DetectActivity extends AppCompatActivity {
     private Bitmap  loadedBitmap;
     private boolean isPalayDetected   = false;
     private boolean isDetectionFailed = false;
+    private boolean isFromCamera      = false;
 
     // Stored from YOLO result to pass on to AnalysisResultActivity
     private float detectedConfidence = 0f;
@@ -43,6 +52,7 @@ public class DetectActivity extends AppCompatActivity {
     private TextView     tvInfoMessage;
     private LinearLayout confidenceLayout;
     private TextView     tvConfidenceValue;
+    private ActivityResultLauncher<String> galleryLauncher;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -63,7 +73,9 @@ public class DetectActivity extends AppCompatActivity {
 
         // Load image passed from CameraActivity or MainActivity (gallery)
         imagePath    = getIntent().getStringExtra("image_path");
+        isFromCamera = getIntent().getBooleanExtra("is_from_camera", false);
         loadedBitmap = loadBitmapFromPath(imagePath);
+        btnRetake.setText(isFromCamera ? "Retake" : "Re-import");
         if (loadedBitmap != null) {
             ivDetectImage.setImageBitmap(loadedBitmap);
         }
@@ -78,21 +90,52 @@ public class DetectActivity extends AppCompatActivity {
             btnAction.setEnabled(false);
         }
 
+        galleryLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null) {
+                        File savedFile = copyUriToCache(uri);
+                        if (savedFile != null) {
+                            // Reset state and reload with the new image
+                            deleteCurrentPhoto();
+                            imagePath    = savedFile.getAbsolutePath();
+                            loadedBitmap = loadBitmapFromPath(imagePath);
+                            ivDetectImage.setImageBitmap(loadedBitmap);
+
+                            // Reset detection state for the new image
+                            isPalayDetected   = false;
+                            isDetectionFailed = false;
+                            isFromCamera      = false;
+                            btnAction.setText("Detect");
+                            btnRetake.setVisibility(View.GONE);
+                            btnRetake.setText("Re-import");
+                            tvInfoMessage.setVisibility(View.GONE);
+                            confidenceLayout.setVisibility(View.GONE);
+                        }
+                    }
+                }
+        );
+
         // ── Retake button ─────────────────────────────────────────────────────
         btnRetake.setOnClickListener(v -> {
-            deleteCurrentPhoto();
-            onDestroy();
-            goToCamera();
+            if (isFromCamera) {
+                deleteCurrentPhoto();
+                goToCamera();
+            } else {
+                galleryLauncher.launch("image/*"); // ← directly opens gallery
+            }
         });
 
         // ── Main action button ────────────────────────────────────────────────
         btnAction.setOnClickListener(v -> {
 
             if (isDetectionFailed) {
-                // After failed detection → "Retake" goes back to camera
-                deleteCurrentPhoto();
-                goToCamera();
-
+                if (isFromCamera) {
+                    deleteCurrentPhoto();
+                    goToCamera();
+                } else {
+                    galleryLauncher.launch("image/*"); // ← directly opens gallery
+                }
             } else if (!isPalayDetected) {
                 // ── Step 1: Run YOLO detection ────────────────────────────────
                 showLoadingState("Detecting…");
@@ -137,11 +180,17 @@ public class DetectActivity extends AppCompatActivity {
                             // ── No rice leaf detected ─────────────────────────
                             isDetectionFailed = true;
 
-                            tvInfoMessage.setText("No Palay Detected!\nPlease retake the photo.");
-                            tvInfoMessage.setVisibility(View.VISIBLE);
-
-                            confidenceLayout.setVisibility(View.GONE);
-                            btnAction.setText("Retake");
+                            if(isFromCamera) {
+                                tvInfoMessage.setText("         No Palay Detected!\nPlease retake the photo.");
+                                tvInfoMessage.setVisibility(View.VISIBLE);
+                                confidenceLayout.setVisibility(View.GONE);
+                                btnAction.setText("Retake");
+                            }else{
+                                tvInfoMessage.setText("         No Palay Detected!\nPlease re-import the photo.");
+                                tvInfoMessage.setVisibility(View.VISIBLE);
+                                confidenceLayout.setVisibility(View.GONE);
+                                btnAction.setText("Re-import");
+                            }
                         }
                     });
                 }).start();
@@ -172,6 +221,8 @@ public class DetectActivity extends AppCompatActivity {
             }
         });
     }
+
+
 
     // ── Saves annotated bitmap back over the original cached file ────────────
     private void saveAnnotatedBitmap(Bitmap bitmap) {
@@ -219,6 +270,25 @@ public class DetectActivity extends AppCompatActivity {
         if (imagePath != null) {
             File f = new File(imagePath);
             if (f.exists()) f.delete();
+        }
+    }
+
+    private File copyUriToCache(Uri uri) {
+        try {
+            InputStream  in   = getContentResolver().openInputStream(uri);
+            File         file = new File(getCacheDir(), "imported_leaf_" + System.currentTimeMillis() + ".jpg");
+            OutputStream out  = new FileOutputStream(file);
+
+            byte[] buffer = new byte[4096];
+            int length;
+            while ((length = in.read(buffer)) > 0) out.write(buffer, 0, length);
+
+            out.close();
+            in.close();
+            return file;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 
