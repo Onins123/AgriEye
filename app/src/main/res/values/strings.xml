@@ -12,4 +12,13 @@
     <string name="severity_moderate">67%</string>
     <string name="ses_scale_5">5</string>
     <string name="desc_analysis_image">Image showing the result of the crop analysis</string>
+    <string name="disclaimer_firstlabel">Important: Field Inspection Required</string>
+    <string name="disclaimer_lasttext">By proceeding, you acknowledge that the final management decision rests with the user.</string>
+    <string name="disclaimer_firsttext">This application is an AI-powered tool designed to assist in identifying rice leaf diseases. It is not a substitute for professional agronomic advice or a thorough manual field inspection.</string>
+    <string name="disclaimer_secondlabel">Before taking action:</string>
+    <string name="disclaimer_steps">• Physically inspect the affected plants.\n• Consider local weather and crop history.\n• Consult a licensed agriculturist if symptoms persist.</string>
+    <string name="disclaimer_buttontext">I UNDERSTAND AND AGREE</string>
+    <string name="disclaimer_title">Disclaimer</string>
+    <string name="disclaimer_icon_desc">Disclaimer warning icon</string>
+    <string name="app_logo_desc">AgriEye application logo</string>
 </resources>

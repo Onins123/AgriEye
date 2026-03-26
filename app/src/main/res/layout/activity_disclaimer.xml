@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main_layout_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F1F8E9"
+    android:padding="24dp">
+
+    <ImageView
+        android:id="@+id/disclaimer_icon"
+        android:layout_width="80dp"
+        android:layout_height="50dp"
+        android:layout_marginTop="16dp"
+        android:contentDescription="@string/disclaimer_icon_desc"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/disclaimer" />
+
+    <TextView
+        android:id="@+id/tv_disclaimer_title2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/disclaimer_title"
+        android:textColor="#1B3022"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/disclaimer_icon" />
+
+    <TextView
+        android:id="@+id/tv_disclaimer_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/disclaimer_firstlabel"
+        android:textColor="#1B3022"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_disclaimer_title2" />
+
+    <TextView
+        android:id="@+id/tv_disclaimer_body"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:lineSpacingExtra="4sp"
+        android:text="@string/disclaimer_firsttext"
+        android:textColor="#2E4D36"
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_disclaimer_title" />
+
+    <TextView
+        android:id="@+id/tv_instruction_header"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="@string/disclaimer_secondlabel"
+        android:textColor="#1B3022"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_disclaimer_body" />
+
+    <TextView
+        android:id="@+id/tv_bullet_points"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:lineSpacingExtra="6sp"
+        android:text="@string/disclaimer_steps"
+        android:textColor="#2E4D36"
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_instruction_header" />
+
+    <TextView
+        android:id="@+id/tv_final_clause"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="@string/disclaimer_lasttext"
+        android:textColor="#2E4D36"
+        android:textSize="14sp"
+        android:textStyle="italic"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_bullet_points" />
+
+    <Button
+        android:id="@+id/btn_agree"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="24dp"
+        android:backgroundTint="#2D5A27"
+        android:minHeight="48dp"
+        android:text="@string/disclaimer_buttontext"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp"
+        app:layout_constraintBottom_toTopOf="@id/disclaimer_logo"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageView
+        android:id="@+id/disclaimer_logo"
+        android:layout_width="80dp"
+        android:layout_height="40dp"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="@string/app_logo_desc"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintStart_toStartOf="parent"
+        app:srcCompat="@drawable/agrieye_logo" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

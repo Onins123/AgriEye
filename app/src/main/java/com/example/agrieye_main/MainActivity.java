@@ -4,6 +4,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.Dialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -18,7 +19,6 @@ import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
-    // ── Gallery launcher must be a field, declared here (NOT inside onCreate) ──
     private ActivityResultLauncher<String> galleryLauncher;
 
     @Override
@@ -26,10 +26,13 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button btnTakePhoto   = findViewById(R.id.btnTakePhoto);
+        // --- STEP 1: Show Disclaimer First ---
+        showDisclaimerDialog();
+
+        // --- STEP 2: Initialize UI Components ---
+        Button btnTakePhoto = findViewById(R.id.btnTakePhoto);
         Button btnImportImage = findViewById(R.id.btnImportImage);
 
-        // Register the gallery picker — must be done in onCreate before any click
         galleryLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
                 uri -> {
@@ -47,16 +50,13 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
 
-        // Navigate to CameraActivity
         btnTakePhoto.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, CameraActivity.class);
             startActivity(intent);
         });
 
-        // Open gallery picker
         btnImportImage.setOnClickListener(v -> galleryLauncher.launch("image/*"));
 
-        // Back button → show exit dialog
         getOnBackPressedDispatcher().addCallback(
                 this,
                 new androidx.activity.OnBackPressedCallback(true) {
@@ -69,11 +69,35 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
-    /** Copies a Uri (from gallery) into the app's cache dir as a real File. */
+    private void showDisclaimerDialog() {
+        final Dialog dialog = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        dialog.setContentView(R.layout.activity_disclaimer);
+        dialog.setCancelable(false);
+
+        Button btnAgree = dialog.findViewById(R.id.btn_agree);
+
+        // This is the key! We find the root LinearLayout from activity_main.xml
+        final View mainContent = findViewById(R.id.main_content_root);
+
+        btnAgree.setOnClickListener(v -> {
+            dialog.dismiss();
+
+            // If the main menu was hidden (GONE), we turn it back on (VISIBLE)
+            if (mainContent != null) {
+                mainContent.setVisibility(View.VISIBLE);
+            } else {
+                // If you still see white, this Toast will tell us if the ID is missing
+                Toast.makeText(MainActivity.this, "Main layout not found!", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        dialog.show();
+    }
+
     private File copyUriToCache(Uri uri) {
         try {
-            InputStream  inputStream  = getContentResolver().openInputStream(uri);
-            File         file         = new File(getCacheDir(), "imported_leaf_" + System.currentTimeMillis() + ".jpg");
+            InputStream inputStream = getContentResolver().openInputStream(uri);
+            File file = new File(getCacheDir(), "imported_leaf_" + System.currentTimeMillis() + ".jpg");
             OutputStream outputStream = new FileOutputStream(file);
 
             byte[] buffer = new byte[4096];
