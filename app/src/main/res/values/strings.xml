@@ -21,4 +21,7 @@
     <string name="disclaimer_title">Disclaimer</string>
     <string name="disclaimer_icon_desc">Disclaimer warning icon</string>
     <string name="app_logo_desc">AgriEye application logo</string>
+    <string name="ses_placeholder">SES %1$s</string>
+    <string name="severity_placeholder">Severity Level: %1$.0f%% (%2$s)</string>
+    <string name="disagree_text">I DO NOT AGREE</string>
 </resources>

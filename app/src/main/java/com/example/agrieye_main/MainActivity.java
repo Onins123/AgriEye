@@ -74,22 +74,30 @@ public class MainActivity extends AppCompatActivity {
         dialog.setContentView(R.layout.activity_disclaimer);
         dialog.setCancelable(false);
 
+        // Initialize both buttons from the Dialog content
         Button btnAgree = dialog.findViewById(R.id.btn_agree);
+        Button btnDisagree = dialog.findViewById(R.id.btn_disagree); // NEW BUTTON
 
-        // This is the key! We find the root LinearLayout from activity_main.xml
+        // Find the root layout of activity_main
         final View mainContent = findViewById(R.id.main_content_root);
 
+        // --- AGREE LOGIC ---
         btnAgree.setOnClickListener(v -> {
             dialog.dismiss();
-
-            // If the main menu was hidden (GONE), we turn it back on (VISIBLE)
             if (mainContent != null) {
                 mainContent.setVisibility(View.VISIBLE);
-            } else {
-                // If you still see white, this Toast will tell us if the ID is missing
-                Toast.makeText(MainActivity.this, "Main layout not found!", Toast.LENGTH_SHORT).show();
             }
         });
+
+        // --- DON'T AGREE LOGIC (EXIT APP) ---
+        if (btnDisagree != null) {
+            btnDisagree.setOnClickListener(v -> {
+                dialog.dismiss();
+                // Closes all activities and exits the app process
+                finishAffinity();
+                System.exit(0);
+            });
+        }
 
         dialog.show();
     }

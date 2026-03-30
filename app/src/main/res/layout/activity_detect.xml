@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/agri_light_yellow_green"
+    android:background="#7a8662"
     android:padding="32dp">
 
     <LinearLayout
@@ -28,15 +28,15 @@
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginBottom="10dp">
+            android:layout_marginBottom="10dp"
+            android:layout_weight="1">
 
             <ImageView
                 android:id="@+id/ivDetectImage"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="#EEE"
                 android:adjustViewBounds="true"
+                android:background="#EEE"
                 android:scaleType="centerCrop" />
 
             <View
@@ -93,15 +93,15 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="10dp">
+            android:layout_marginBottom="10dp"
+            android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnRetake"
                 android:layout_width="0dp"
                 android:layout_height="55dp"
-                android:layout_weight="1"
                 android:layout_marginEnd="8dp"
+                android:layout_weight="1"
                 android:text="Retake"
                 android:visibility="gone"
                 app:backgroundTint="@color/agri_dark_green"

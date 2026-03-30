@@ -7,40 +7,61 @@ import android.transition.AutoTransition;
 import android.transition.TransitionManager;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import java.io.File;
 import java.util.Locale;
 
 public class AnalysisResultActivity extends AppCompatActivity {
 
-    private TextView tvTypeValue, tvCauseValue, tvLevelValue, tvSesValue, tvManagementTipsValue;
-    private LinearLayout layoutManagementTips;
-    private Button btnManageDisease;
+    // Global UI references
+    private TextView tvTypeValue, tvCauseValue, tvLevelValue, tvSesValue, tvSymptomsValue, tvManagementTipsValue;
     private ViewGroup rootLayout;
-    private String currentManagementTips = "";
+
+    // Expandable Containers (The inner cards)
+    private View expandableAbout, expandableSymptoms, expandableManagement;
+
+    // Clickable Headers (The outer cards)
+    private CardView cardAbout, cardSymptoms, cardManagement;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_analysis_result);
 
+        // 1. Initialize Views
         rootLayout = findViewById(R.id.rootLayout);
         ImageView resultImageView = findViewById(R.id.imageView_ResultOfAnalysis);
+
+        // Diagnosis section (Always visible)
         tvTypeValue = findViewById(R.id.tv_diseaseType_value);
-        tvCauseValue = findViewById(R.id.tv_commonCause_value);
         tvLevelValue = findViewById(R.id.tv_severityLevel_value);
         tvSesValue = findViewById(R.id.tv_severityClassification_value);
-        
-        layoutManagementTips = findViewById(R.id.layoutManagementTips);
+
+        // Accordion Outer Cards (Clickable)
+        cardAbout = findViewById(R.id.cardAbout);
+        cardSymptoms = findViewById(R.id.cardSymptoms);
+        cardManagement = findViewById(R.id.cardManagement);
+
+        // Accordion Inner Cards (Expandable)
+        expandableAbout = findViewById(R.id.expandableAbout);
+        expandableSymptoms = findViewById(R.id.expandableSymptoms);
+        expandableManagement = findViewById(R.id.expandableManagement);
+
+        // Content TextViews inside the expandable cards
+        tvCauseValue = findViewById(R.id.tv_commonCause_value);
+        tvSymptomsValue = findViewById(R.id.tv_symptoms_value);
         tvManagementTipsValue = findViewById(R.id.tvManagementTipsValue);
-        btnManageDisease = findViewById(R.id.btnManageDisease);
 
+        // 2. Set Up Click Listeners for the Accordion
+        cardAbout.setOnClickListener(v -> toggleAccordion(expandableAbout));
+        cardSymptoms.setOnClickListener(v -> toggleAccordion(expandableSymptoms));
+        cardManagement.setOnClickListener(v -> toggleAccordion(expandableManagement));
+
+        // 3. Load Image
         String imagePath = getIntent().getStringExtra("image_path");
-
         if (imagePath != null) {
             File imgFile = new File(imagePath);
             if (imgFile.exists()) {
@@ -48,23 +69,21 @@ public class AnalysisResultActivity extends AppCompatActivity {
                 if (myBitmap != null) {
                     resultImageView.setImageBitmap(myBitmap);
                 }
-                startAnalysis();
             }
         }
 
-        btnManageDisease.setOnClickListener(v -> toggleManagementTips());
+        // 4. Run Analysis Logic to fill text
+        startAnalysis();
     }
 
-    private void toggleManagementTips() {
-        // Smooth transition for the expanding card
+    private void toggleAccordion(View viewToToggle) {
+        // Smooth transition animation
         TransitionManager.beginDelayedTransition(rootLayout, new AutoTransition());
 
-        if (layoutManagementTips.getVisibility() == View.GONE) {
-            layoutManagementTips.setVisibility(View.VISIBLE);
-            btnManageDisease.setText("Management Tips");
+        if (viewToToggle.getVisibility() == View.GONE) {
+            viewToToggle.setVisibility(View.VISIBLE);
         } else {
-            layoutManagementTips.setVisibility(View.GONE);
-            btnManageDisease.setText(R.string.btn_manage_disease);
+            viewToToggle.setVisibility(View.GONE);
         }
     }
 
@@ -72,69 +91,51 @@ public class AnalysisResultActivity extends AppCompatActivity {
         String diseaseName = getIntent().getStringExtra("disease_name");
         double diseasedPercentage = getIntent().getDoubleExtra("diseased_percentage", 0.0);
 
-        String commonCause;
+        String commonCause = "";
+        String symptoms = "";
+        String management = "";
+
+        // Logic for Data
         if (diseaseName != null) {
             switch (diseaseName) {
                 case "Bacterial Leaf Blight":
                     commonCause = "Xanthomonas oryzae pv. oryzae";
-                    currentManagementTips = "• Use resistant varieties.\n• Ensure balanced nitrogen fertilization.\n• Maintain field sanitation.\n• Apply copper-based fungicides if necessary.";
-                    break;
-                case "Bacterial Leaf Streak":
-                    commonCause = "Xanthomonas oryzae pv. Oryzicola";
-                    currentManagementTips = "• Use certified disease-free seeds.\n• Avoid excessive nitrogen application.\n• Keep fields drained to reduce humidity.";
-                    break;
-                case "Narrow Brown Spot":
-                    commonCause = "Sphaerulina oryzina";
-                    currentManagementTips = "• Apply potassium fertilizer.\n• Use resistant cultivars.\n• Consider foliar fungicides during peak infection periods.";
+                    symptoms = "• Water-soaked to yellowish stripes on leaf blades.\n• Milky ooze on leaves during morning.";
+                    management = "• Use resistant varieties.\n• Ensure balanced nitrogen.\n• Maintain field sanitation.";
                     break;
                 case "Leaf Blast":
                     commonCause = "Magnaporthe oryzae";
-                    currentManagementTips = "• Avoid high seeding density.\n• Manage water levels consistently.\n• Use blast-resistant varieties.\n• Apply systemic fungicides early.";
+                    symptoms = "• Diamond-shaped lesions with white/gray centers.\n• Brown to reddish borders on leaves.";
+                    management = "• Avoid high seeding density.\n• Manage water levels consistently.\n• Apply systemic fungicides if needed.";
+                    break;
+                case "Narrow Brown Spot":
+                    commonCause = "Sphaerulina oryzina";
+                    symptoms = "• Short, narrow, brown longitudinal lesions.\n• Typically occurs in late growth stages.";
+                    management = "• Apply potassium fertilizer.\n• Use resistant cultivars.";
                     break;
                 default:
                     commonCause = "Unknown Pathogen";
-                    currentManagementTips = "No specific management tips available.";
+                    symptoms = "General leaf spotting observed.";
+                    management = "Consult a local agriculturist.";
                     break;
             }
-        } else {
-            diseaseName = "Unknown Disease";
-            commonCause = "N/A";
-            currentManagementTips = "Management tips could not be generated.";
         }
 
-        String infectionDescription;
+        // Determine SES Scale
         String sesScale;
+        String description;
+        if (diseasedPercentage <= 5) { sesScale = "3"; description = "Low"; }
+        else if (diseasedPercentage <= 25) { sesScale = "5"; description = "Moderate"; }
+        else { sesScale = "9"; description = "Severe"; }
 
-        if (diseasedPercentage <= 0) {
-            sesScale = "0";
-            infectionDescription = "no infection";
-        } else if (diseasedPercentage < 1) {
-            sesScale = "1";
-            infectionDescription = "trace";
-        } else if (diseasedPercentage <= 5) {
-            sesScale = "3";
-            infectionDescription = "low";
-        } else if (diseasedPercentage <= 25) {
-            sesScale = "5";
-            infectionDescription = "moderate";
-        } else if (diseasedPercentage <= 50) {
-            sesScale = "7";
-            infectionDescription = "high";
-        } else {
-            sesScale = "9";
-            infectionDescription = "severe";
-        }
-
+        // Update UI
         if (tvTypeValue != null) tvTypeValue.setText(diseaseName);
         if (tvCauseValue != null) tvCauseValue.setText(commonCause);
-        if (tvManagementTipsValue != null) tvManagementTipsValue.setText(currentManagementTips);
-        
+        if (tvSymptomsValue != null) tvSymptomsValue.setText(symptoms);
+        if (tvManagementTipsValue != null) tvManagementTipsValue.setText(management);
+        if (tvSesValue != null) tvSesValue.setText("SES " + sesScale);
         if (tvLevelValue != null) {
-            tvLevelValue.setText(String.format(Locale.getDefault(), "%.0f%% (%s)", diseasedPercentage, infectionDescription));
-        }
-        
-        if (tvSesValue != null) {
-            tvSesValue.setText(sesScale);
+            tvLevelValue.setText(String.format(Locale.getDefault(), "Severity Level: %.0f%% (%s)", diseasedPercentage, description));
         }
     }
 }

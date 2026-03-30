@@ -96,35 +96,55 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tv_bullet_points" />
 
-    <Button
-        android:id="@+id/btn_agree"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="24dp"
-        android:backgroundTint="#2D5A27"
-        android:minHeight="48dp"
-        android:text="@string/disclaimer_buttontext"
-        android:textAllCaps="false"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        app:cornerRadius="12dp"
-        app:layout_constraintBottom_toTopOf="@id/disclaimer_logo"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
     <ImageView
         android:id="@+id/disclaimer_logo"
         android:layout_width="80dp"
         android:layout_height="40dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="4dp"
         android:contentDescription="@string/app_logo_desc"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
         app:srcCompat="@drawable/agrieye_logo" />
+
+    <Button
+        android:id="@+id/btn_disagree"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="32dp"
+        android:backgroundTint="#6F8366"
+        android:minHeight="48dp"
+        android:text="I DO NOT AGREE"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp"
+        app:layout_constraintBottom_toTopOf="@id/disclaimer_logo"
+        app:layout_constraintEnd_toStartOf="@+id/btn_agree"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/btn_agree"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="32dp"
+        android:backgroundTint="#992D5A27"
+        android:minHeight="48dp"
+        android:text="@string/disclaimer_buttontext"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:cornerRadius="12dp"
+        app:layout_constraintBottom_toTopOf="@id/disclaimer_logo"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/btn_disagree" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
