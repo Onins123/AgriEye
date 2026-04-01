@@ -96,11 +96,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tv_bullet_points" />
 
+    <!-- ↓ CHANGED: increased layout_marginBottom to lift logo above system navbar -->
     <ImageView
         android:id="@+id/disclaimer_logo"
         android:layout_width="80dp"
         android:layout_height="40dp"
-        android:layout_marginBottom="4dp"
+        android:layout_marginBottom="24dp"
         android:contentDescription="@string/app_logo_desc"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

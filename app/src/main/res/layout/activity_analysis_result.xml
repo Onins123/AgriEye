@@ -9,26 +9,43 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/ivLogo2">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingBottom="40dp">
+            android:paddingBottom="16dp">
 
+            <!-- Back button — upper left -->
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Back"
+                android:src="@drawable/ic_back"
+                android:tint="#F2ECEC"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <!-- "Result" title — centered, vertically aligned with back button -->
             <TextView
                 android:id="@+id/tvHeaderResult"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
                 android:fontFamily="sans-serif-black"
                 android:text="Result"
                 android:textColor="#F2ECEC"
                 android:textSize="24sp"
+                app:layout_constraintBottom_toBottomOf="@+id/btnBack"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="@+id/btnBack" />
 
             <View
                 android:id="@+id/headerDivider"
@@ -40,7 +57,7 @@
                 android:background="#40F2ECEC"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tvHeaderResult" />
+                app:layout_constraintTop_toBottomOf="@+id/btnBack" />
 
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardImage"
@@ -62,6 +79,7 @@
                     tools:srcCompat="@tools:sample/avatars" />
             </androidx.cardview.widget.CardView>
 
+            <!-- DIAGNOSIS — always visible, no toggle -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardDiagnosis"
                 android:layout_width="371dp"
@@ -148,6 +166,7 @@
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- ABOUT THE DISEASE — collapsible, open by default -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardAbout"
                 android:layout_width="371dp"
@@ -185,12 +204,22 @@
                         app:layout_constraintStart_toEndOf="@+id/iconAbout"
                         app:layout_constraintTop_toTopOf="@+id/iconAbout" />
 
+                    <ImageView
+                        android:id="@+id/iconChevronAbout"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_diagnosis"
+                        android:rotation="0"
+                        app:layout_constraintBottom_toBottomOf="@+id/iconAbout"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/iconAbout" />
+
                     <androidx.cardview.widget.CardView
                         android:id="@+id/expandableAbout"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:visibility="gone"
+                        android:visibility="visible"
                         app:cardBackgroundColor="#e2e8cf"
                         app:cardCornerRadius="12dp"
                         app:cardElevation="0dp"
@@ -208,6 +237,7 @@
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- SYMPTOMS — collapsible, open by default -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardSymptoms"
                 android:layout_width="371dp"
@@ -245,12 +275,22 @@
                         app:layout_constraintStart_toEndOf="@+id/iconSymptoms"
                         app:layout_constraintTop_toTopOf="@+id/iconSymptoms" />
 
+                    <ImageView
+                        android:id="@+id/iconChevronSymptoms"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_diagnosis"
+                        android:rotation="0"
+                        app:layout_constraintBottom_toBottomOf="@+id/iconSymptoms"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/iconSymptoms" />
+
                     <androidx.cardview.widget.CardView
                         android:id="@+id/expandableSymptoms"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:visibility="gone"
+                        android:visibility="visible"
                         app:cardBackgroundColor="#e2e8cf"
                         app:cardCornerRadius="12dp"
                         app:cardElevation="0dp"
@@ -269,6 +309,7 @@
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- MANAGEMENT — collapsible, open by default -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardManagement"
                 android:layout_width="371dp"
@@ -306,12 +347,22 @@
                         app:layout_constraintStart_toEndOf="@+id/iconManage"
                         app:layout_constraintTop_toTopOf="@+id/iconManage" />
 
+                    <ImageView
+                        android:id="@+id/iconChevronManage"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_diagnosis"
+                        android:rotation="0"
+                        app:layout_constraintBottom_toBottomOf="@+id/iconManage"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/iconManage" />
+
                     <androidx.cardview.widget.CardView
                         android:id="@+id/expandableManagement"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:visibility="gone"
+                        android:visibility="visible"
                         app:cardBackgroundColor="#e2e8cf"
                         app:cardCornerRadius="12dp"
                         app:cardElevation="0dp"
@@ -337,7 +388,7 @@
         android:id="@+id/ivLogo2"
         android:layout_width="80dp"
         android:layout_height="40dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="24dp"
         android:src="@drawable/agrieye_logo"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
