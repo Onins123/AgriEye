@@ -338,36 +338,74 @@ public class YoloClassifier {
     //   6. Scale each proto pixel → image pixel coordinates and paint green.
     //
     public Bitmap renderMask(Bitmap original, List<DetectionResult> results) {
-        // Always work on a mutable copy of the ORIGINAL bitmap (not the 640x640 resized one)
-        // The bounding box coordinates are normalized [0,1] so they scale to any size correctly
         Bitmap mutable = original.copy(Bitmap.Config.ARGB_8888, true);
         Canvas canvas  = new Canvas(mutable);
 
         int W = mutable.getWidth();
         int H = mutable.getHeight();
 
-        // Scale stroke width relative to image size so it's visible on any resolution
-        float strokeWidth = Math.max(W, H) * 0.005f; // 0.5% of the larger dimension
-        float textSize    = Math.max(W, H) * 0.04f;  // 4% of the larger dimension
+        float textSize = Math.max(W, H) * 0.04f;
 
-        // Semi-transparent green fill inside the box
-        Paint fillPaint = new Paint();
-        fillPaint.setColor(Color.argb(60, 0, 220, 80));
-        fillPaint.setStyle(Paint.Style.FILL);
+        boolean hasProto = (protoMasksFirst != null || protoMasksLast != null);
 
-        // Solid green border
-        Paint boxPaint = new Paint();
-        boxPaint.setColor(Color.argb(230, 0, 220, 80));
-        boxPaint.setStyle(Paint.Style.STROKE);
-        boxPaint.setStrokeWidth(strokeWidth);
-        boxPaint.setAntiAlias(true);
+        // ── Draw segmentation masks (pixel-level) ─────────────────────────────────
+        if (hasProto) {
+            int[] pixels = new int[W * H];
+            mutable.getPixels(pixels, 0, W, 0, 0, W, H);
 
-        // Dark green label background
+            // Semi-transparent green for detected palay leaf
+            int maskColor = Color.argb(120, 0, 220, 80);
+
+            for (int iy = 0; iy < H; iy++) {
+                for (int ix = 0; ix < W; ix++) {
+                    float nx = (ix + 0.5f) / W;
+                    float ny = (iy + 0.5f) / H;
+
+                    int blended = pixels[iy * W + ix];
+
+                    for (DetectionResult r : results) {
+                        if (nx < r.boundingBox.left  || nx > r.boundingBox.right
+                                || ny < r.boundingBox.top   || ny > r.boundingBox.bottom) continue;
+
+                        int px = Math.min((int)(nx * protoW), protoW - 1);
+                        int py = Math.min((int)(ny * protoH), protoH - 1);
+
+                        float dot = 0f;
+                        int   len = Math.min(r.maskCoefficients.length, NUM_MASK_COEFFICIENTS);
+                        for (int k = 0; k < len; k++) {
+                            dot += r.maskCoefficients[k] * getProto(k, py, px);
+                        }
+
+                        if (sigmoid(dot) > 0.5f) {
+                            blended = blendColor(blended, maskColor);
+                        }
+                    }
+
+                    pixels[iy * W + ix] = blended;
+                }
+            }
+            mutable.setPixels(pixels, 0, W, 0, 0, W, H);
+
+        } else {
+            // Fallback: no proto masks available — draw filled rect
+            Log.w(TAG, "renderMask: no proto masks available, falling back to filled rect.");
+            Paint fillPaint = new Paint();
+            fillPaint.setColor(Color.argb(80, 0, 220, 80));
+            fillPaint.setStyle(Paint.Style.FILL);
+            for (DetectionResult r : results) {
+                canvas.drawRect(
+                        r.boundingBox.left * W, r.boundingBox.top * H,
+                        r.boundingBox.right * W, r.boundingBox.bottom * H,
+                        fillPaint
+                );
+            }
+        }
+
+        // ── Draw labels only (no bounding box border) ─────────────────────────────
         Paint bgPaint = new Paint();
         bgPaint.setColor(Color.argb(200, 0, 100, 40));
         bgPaint.setStyle(Paint.Style.FILL);
 
-        // White label text
         Paint textPaint = new Paint();
         textPaint.setColor(Color.WHITE);
         textPaint.setTextSize(textSize);
@@ -375,32 +413,32 @@ public class YoloClassifier {
         textPaint.setFakeBoldText(true);
 
         for (DetectionResult r : results) {
-            // Convert normalized [0,1] coords → actual pixel coords on the ORIGINAL image
-            float left   = r.boundingBox.left   * W;
-            float top    = r.boundingBox.top    * H;
-            float right  = r.boundingBox.right  * W;
+            float left   = r.boundingBox.left  * W;
+            float top    = r.boundingBox.top   * H;
             float bottom = r.boundingBox.bottom * H;
 
-            // Draw semi-transparent fill
-            canvas.drawRect(left, top, right, bottom, fillPaint);
-
-            // Draw border
-            canvas.drawRect(left, top, right, bottom, boxPaint);
-
-            // Draw label background + text
             float labelHeight = textSize + 16f;
             float labelTop    = (top - labelHeight > 0) ? top - labelHeight : bottom;
             float labelWidth  = textPaint.measureText(r.label) + 24f;
 
-            canvas.drawRoundRect(
-                    left, labelTop,
-                    left + labelWidth, labelTop + labelHeight,
-                    8f, 8f, bgPaint
-            );
+            canvas.drawRoundRect(left, labelTop, left + labelWidth,
+                    labelTop + labelHeight, 8f, 8f, bgPaint);
             canvas.drawText(r.label, left + 12f, labelTop + labelHeight - 8f, textPaint);
         }
 
         return mutable;
+    }
+
+    private static float sigmoid(float x) {
+        return 1f / (1f + (float) Math.exp(-x));
+    }
+
+    private static int blendColor(int src, int overlay) {
+        float a = Color.alpha(overlay) / 255f;
+        int   r = (int)(Color.red(overlay)   * a + Color.red(src)   * (1 - a));
+        int   g = (int)(Color.green(overlay) * a + Color.green(src) * (1 - a));
+        int   b = (int)(Color.blue(overlay)  * a + Color.blue(src)  * (1 - a));
+        return Color.argb(255, r, g, b);
     }
 
     // ── Free memory ───────────────────────────────────────────────────────────

@@ -12,19 +12,18 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+
+import android.net.Uri;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.List;
-
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import java.io.InputStream;
 import java.io.OutputStream;
-import android.net.Uri;
+import java.util.List;
 
 public class DetectActivity extends AppCompatActivity {
 
@@ -37,11 +36,12 @@ public class DetectActivity extends AppCompatActivity {
     private boolean isDetectionFailed = false;
     private boolean isFromCamera      = false;
 
-    // Stored from YOLO result to pass on to AnalysisResultActivity
+    // Stored from Model 1 result
     private float detectedConfidence = 0f;
 
-    // ── YOLO ──────────────────────────────────────────────────────────────────
-    private YoloClassifier classifier;
+    // ── Models ────────────────────────────────────────────────────────────────
+    private YoloClassifier    classifier;        // Model 1: palay/leaf presence
+    private DiseaseClassifier diseaseClassifier; // Model 2: disease + severity
 
     // ── Views ─────────────────────────────────────────────────────────────────
     private ImageView    ivDetectImage;
@@ -52,6 +52,7 @@ public class DetectActivity extends AppCompatActivity {
     private TextView     tvInfoMessage;
     private LinearLayout confidenceLayout;
     private TextView     tvConfidenceValue;
+
     private ActivityResultLauncher<String> galleryLauncher;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -76,33 +77,38 @@ public class DetectActivity extends AppCompatActivity {
         isFromCamera = getIntent().getBooleanExtra("is_from_camera", false);
         loadedBitmap = loadBitmapFromPath(imagePath);
         btnRetake.setText(isFromCamera ? "Retake" : "Re-import");
-        if (loadedBitmap != null) {
-            ivDetectImage.setImageBitmap(loadedBitmap);
-        }
+        if (loadedBitmap != null) ivDetectImage.setImageBitmap(loadedBitmap);
 
-        // Load YOLOv8 model — fast (just memory-maps the .tflite file)
+        // ── Load Model 1: Palay/Leaf detector ────────────────────────────────
         classifier = new YoloClassifier(this);
-        boolean modelLoaded = classifier.initialize();
-        if (!modelLoaded) {
-            Log.e(TAG, "YOLOv8 model failed to load.");
-            tvInfoMessage.setText("Model failed to load. Please reinstall the app.");
+        if (!classifier.initialize()) {
+            Log.e(TAG, "Model 1 (YoloClassifier) failed to load.");
+            tvInfoMessage.setText("Leaf detection model failed to load. Please reinstall the app.");
             tvInfoMessage.setVisibility(View.VISIBLE);
             btnAction.setEnabled(false);
         }
 
+        // ── Load Model 2: Disease classifier ─────────────────────────────────
+        diseaseClassifier = new DiseaseClassifier(this);
+        if (!diseaseClassifier.initialize()) {
+            // Non-fatal — we log it, but still allow leaf detection (Step 1) to work.
+            // Step 2 (Analyze) will show an error if Model 2 is unavailable.
+            Log.e(TAG, "Model 2 (DiseaseClassifier) failed to load.");
+        }
+
+        // ── Gallery launcher ──────────────────────────────────────────────────
         galleryLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
                 uri -> {
                     if (uri != null) {
                         File savedFile = copyUriToCache(uri);
                         if (savedFile != null) {
-                            // Reset state and reload with the new image
                             deleteCurrentPhoto();
                             imagePath    = savedFile.getAbsolutePath();
                             loadedBitmap = loadBitmapFromPath(imagePath);
                             ivDetectImage.setImageBitmap(loadedBitmap);
 
-                            // Reset detection state for the new image
+                            // Reset state for the new image
                             isPalayDetected   = false;
                             isDetectionFailed = false;
                             isFromCamera      = false;
@@ -116,60 +122,48 @@ public class DetectActivity extends AppCompatActivity {
                 }
         );
 
-        // ── Retake button ─────────────────────────────────────────────────────
+        // ── Retake / Re-import button ─────────────────────────────────────────
         btnRetake.setOnClickListener(v -> {
-            if (isFromCamera) {
-                deleteCurrentPhoto();
-                goToCamera();
-            } else {
-                galleryLauncher.launch("image/*"); // ← directly opens gallery
-            }
+            if (isFromCamera) { deleteCurrentPhoto(); goToCamera(); }
+            else              { galleryLauncher.launch("image/*"); }
         });
 
         // ── Main action button ────────────────────────────────────────────────
         btnAction.setOnClickListener(v -> {
 
             if (isDetectionFailed) {
-                if (isFromCamera) {
-                    deleteCurrentPhoto();
-                    goToCamera();
-                } else {
-                    galleryLauncher.launch("image/*"); // ← directly opens gallery
-                }
+                // Failure state → allow retry
+                if (isFromCamera) { deleteCurrentPhoto(); goToCamera(); }
+                else              { galleryLauncher.launch("image/*"); }
+
             } else if (!isPalayDetected) {
-                // ── Step 1: Run YOLO detection ────────────────────────────────
+                // ══════════════════════════════════════════════════════════════
+                //  STEP 1 — Run Model 1: Is there a rice/palay leaf here?
+                // ══════════════════════════════════════════════════════════════
                 showLoadingState("Detecting…");
 
                 new Thread(() -> {
                     List<YoloClassifier.DetectionResult> results = null;
-                    if (loadedBitmap != null) {
-                        results = classifier.detect(loadedBitmap);
-                    }
+                    if (loadedBitmap != null) results = classifier.detect(loadedBitmap);
                     final List<YoloClassifier.DetectionResult> finalResults = results;
 
                     runOnUiThread(() -> {
                         hideLoadingState();
 
                         if (finalResults != null && !finalResults.isEmpty()) {
-                            // ── Palay / Rice Leaf detected ────────────────────
-                            isPalayDetected = true;
-
+                            // ── Palay leaf detected ───────────────────────────
+                            isPalayDetected  = true;
                             YoloClassifier.DetectionResult best = finalResults.get(0);
-                            detectedConfidence = best.confidence; // save for later
+                            detectedConfidence = best.confidence;
+
+                            // Draw Model 1 bounding box
+                            Bitmap withBox = classifier.renderMask(loadedBitmap, finalResults);
+                            ivDetectImage.setImageBitmap(withBox);
+                            saveAnnotatedBitmap(withBox);
 
                             int confidencePct = Math.round(best.confidence * 100);
-
-                            // Draw bounding box overlay on the ImageView
-                            Bitmap withMask = classifier.renderMask(loadedBitmap, finalResults);
-                            ivDetectImage.setImageBitmap(withMask);
-
-                            // Save the annotated bitmap so AnalysisResultActivity
-                            // can show the image with the box drawn on it
-                            saveAnnotatedBitmap(withMask);
-
                             tvInfoMessage.setText("Palay Detected!");
                             tvInfoMessage.setVisibility(View.VISIBLE);
-
                             confidenceLayout.setVisibility(View.VISIBLE);
                             tvConfidenceValue.setText(confidencePct + "%");
 
@@ -177,67 +171,78 @@ public class DetectActivity extends AppCompatActivity {
                             btnRetake.setVisibility(View.VISIBLE);
 
                         } else {
-                            // ── No rice leaf detected ─────────────────────────
+                            // ── No leaf detected ──────────────────────────────
                             isDetectionFailed = true;
-
-                            if(isFromCamera) {
-                                tvInfoMessage.setText("         No Palay Detected!\nPlease retake the photo.");
-                                tvInfoMessage.setVisibility(View.VISIBLE);
-                                confidenceLayout.setVisibility(View.GONE);
-                                btnAction.setText("Retake");
-                            }else{
-                                tvInfoMessage.setText("         No Palay Detected!\nPlease re-import the photo.");
-                                tvInfoMessage.setVisibility(View.VISIBLE);
-                                confidenceLayout.setVisibility(View.GONE);
-                                btnAction.setText("Re-import");
-                            }
+                            String msg = isFromCamera
+                                    ? "         No Palay Detected!\nPlease retake the photo."
+                                    : "         No Palay Detected!\nPlease re-import the photo.";
+                            tvInfoMessage.setText(msg);
+                            tvInfoMessage.setVisibility(View.VISIBLE);
+                            confidenceLayout.setVisibility(View.GONE);
+                            btnAction.setText(isFromCamera ? "Retake" : "Re-import");
                         }
                     });
                 }).start();
 
             } else {
-                // ── Step 2: Detected — move to disease analysis ───────────────
-                // NOTE: Your current model only detects RICE LEAF (is it palay or not).
-                // Disease classification would require a second model.
-                // For now we pass the confidence as "diseased_percentage" as a placeholder
-                // so AnalysisResultActivity renders correctly.
-                // Replace disease_name + diseased_percentage with your disease model later.
-
+                // ══════════════════════════════════════════════════════════════
+                //  STEP 2 — Run Model 2: What disease is it? How severe?
+                // ══════════════════════════════════════════════════════════════
                 showLoadingState("Analyzing…");
                 btnRetake.setEnabled(false);
 
-                Intent intent = new Intent(DetectActivity.this, AnalysisResultActivity.class);
-                intent.putExtra("image_path",          imagePath);
+                new Thread(() -> {
+                    DiseaseClassifier.AnalysisSummary summary = null;
 
-                // ── TODO: Replace these two lines with real disease model output ──
-                intent.putExtra("disease_name",        "Bacterial Leaf Blight");
-                intent.putExtra("diseased_percentage", (double)(detectedConfidence * 100));
-                // ─────────────────────────────────────────────────────────────────
+                    if (loadedBitmap != null) {
+                        // Use the original (non-annotated) bitmap for disease inference
+                        // so Model 1's bounding box doesn't interfere with Model 2's input.
+                        summary = diseaseClassifier.analyze(loadedBitmap);
+                    }
 
-                startActivity(intent);
+                    final DiseaseClassifier.AnalysisSummary finalSummary = summary;
 
-                hideLoadingState();
-                btnRetake.setEnabled(true);
+                    runOnUiThread(() -> {
+                        hideLoadingState();
+                        btnRetake.setEnabled(true);
+
+                        if (finalSummary == null) {
+                            // Disease model unavailable
+                            tvInfoMessage.setText("Disease analysis unavailable. Check that disease.tflite is in assets.");
+                            tvInfoMessage.setVisibility(View.VISIBLE);
+                            return;
+                        }
+
+                        // Show the disease-annotated bitmap in the preview
+                        if (finalSummary.annotatedBitmap != null) {
+                            ivDetectImage.setImageBitmap(finalSummary.annotatedBitmap);
+                            saveAnnotatedBitmap(finalSummary.annotatedBitmap);
+                        }
+
+                        // Navigate to AnalysisResultActivity with real model output
+                        Intent intent = new Intent(DetectActivity.this, AnalysisResultActivity.class);
+                        intent.putExtra("image_path",          imagePath);
+                        intent.putExtra("disease_name",        finalSummary.diseaseName);
+                        intent.putExtra("diseased_percentage", finalSummary.diseasedPercentage);
+                        startActivity(intent);
+                    });
+                }).start();
             }
         });
     }
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-
-    // ── Saves annotated bitmap back over the original cached file ────────────
     private void saveAnnotatedBitmap(Bitmap bitmap) {
         if (imagePath == null) return;
         try {
             FileOutputStream out = new FileOutputStream(new File(imagePath));
             bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
-            out.flush();
-            out.close();
+            out.flush(); out.close();
         } catch (IOException e) {
             Log.e(TAG, "Failed to save annotated bitmap: " + e.getMessage());
         }
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void showLoadingState(String buttonLabel) {
         progressBar.setVisibility(View.VISIBLE);
@@ -278,18 +283,12 @@ public class DetectActivity extends AppCompatActivity {
             InputStream  in   = getContentResolver().openInputStream(uri);
             File         file = new File(getCacheDir(), "imported_leaf_" + System.currentTimeMillis() + ".jpg");
             OutputStream out  = new FileOutputStream(file);
-
             byte[] buffer = new byte[4096];
             int length;
             while ((length = in.read(buffer)) > 0) out.write(buffer, 0, length);
-
-            out.close();
-            in.close();
+            out.close(); in.close();
             return file;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+        } catch (Exception e) { e.printStackTrace(); return null; }
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -297,6 +296,7 @@ public class DetectActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (classifier != null) classifier.close();
+        if (classifier       != null) classifier.close();
+        if (diseaseClassifier != null) diseaseClassifier.close();
     }
 }
