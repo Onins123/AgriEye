@@ -40,8 +40,8 @@ public class DiseaseClassifier {
     private static final String MODEL_FILE = "disease.tflite"; // ← put your model here
 
     // ── Model constants — adjust if your export differs ──────────────────────
-    private static final int   INPUT_SIZE            = 896;
-    private static final float CONFIDENCE_THRESHOLD  = 0.03f;
+    private static final int   INPUT_SIZE            = 768;
+    private static final float CONFIDENCE_THRESHOLD  = 0.05f;
     private static final float IOU_THRESHOLD         = 0.45f;
     private static final int   NUM_MASK_COEFFICIENTS = 32;
 
