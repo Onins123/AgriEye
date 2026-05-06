@@ -24,7 +24,7 @@ public class YoloClassifier {
 
     private static final int   INPUT_SIZE            = 640;
     private static final int   NUM_CLASSES           = 1;
-    private static final float CONFIDENCE_THRESHOLD  = 0.75f;
+    private static final float CONFIDENCE_THRESHOLD  = 0.60f;
     private static final float IOU_THRESHOLD         = 0.45f;
     private static final int   NUM_MASK_COEFFICIENTS = 32;
 
@@ -37,19 +37,20 @@ public class YoloClassifier {
     private boolean isTransposed = false;
 
     // ── Output tensor index resolution ───────────────────────────────────────
-    // YOLOv8-seg TFLite models may export with boxes or protos at either index.
-    // We detect the correct indices from tensor shapes in initialize().
-    private int boxTensorIndex   = 0;   // index of the detection (box) output
-    private int protoTensorIndex = 1;   // index of the proto mask output
+    private int boxTensorIndex   = 0;
+    private int protoTensorIndex = 1;
 
     // Proto mask shape
     private int     protoH             = 160;
     private int     protoW             = 160;
-    private boolean protoChannelsFirst = true; // [1,32,H,W] vs [1,H,W,32]
+    private boolean protoChannelsFirst = true;
 
-    // Stored after detect() so renderMask() can use them
+    // Stored after detect() so renderMask() and getLeafMaskPixelCount() can use them
     private float[][][][] protoMasksFirst = null; // [1][32][H][W]
     private float[][][][] protoMasksLast  = null; // [1][H][W][32]
+
+    // Last detection results — stored so DetectActivity can request leaf pixel count
+    private List<DetectionResult> lastResults = null;
 
     // ── Result container ──────────────────────────────────────────────────────
     public static class DetectionResult {
@@ -91,38 +92,26 @@ public class YoloClassifier {
             }
 
             // ── Auto-detect which output is boxes vs proto masks ──────────────
-            // Box tensor:   shape [1, 37, 8400] or [1, 8400, 37]  (3D, one dim is large ~8400)
-            // Proto tensor: shape [1, 32, 160, 160] or [1, 160, 160, 32] (4D)
             if (interpreter.getOutputTensorCount() >= 2) {
                 int[] shape0 = interpreter.getOutputTensor(0).shape();
                 int[] shape1 = interpreter.getOutputTensor(1).shape();
 
                 if (shape0.length == 4 && shape1.length == 3) {
-                    // Output 0 is the proto mask, Output 1 is the boxes — SWAPPED
                     protoTensorIndex = 0;
                     boxTensorIndex   = 1;
                     Log.d(TAG, "Detected SWAPPED layout: proto=output[0], boxes=output[1]");
                 } else {
-                    // Standard layout: boxes=output[0], proto=output[1]
                     boxTensorIndex   = 0;
                     protoTensorIndex = 1;
                     Log.d(TAG, "Detected STANDARD layout: boxes=output[0], proto=output[1]");
                 }
 
-                // Parse box tensor shape
                 int[] outShape = interpreter.getOutputTensor(boxTensorIndex).shape();
                 if (outShape.length == 3) {
                     int d1 = outShape[1];
                     int d2 = outShape[2];
-                    if (d1 < d2) {
-                        outputDim1   = d1;
-                        outputDim2   = d2;
-                        isTransposed = false;
-                    } else {
-                        outputDim1   = d1;
-                        outputDim2   = d2;
-                        isTransposed = true;
-                    }
+                    if (d1 < d2) { outputDim1 = d1; outputDim2 = d2; isTransposed = false; }
+                    else          { outputDim1 = d1; outputDim2 = d2; isTransposed = true;  }
                 } else if (outShape.length == 2) {
                     outputDim1   = outShape[0];
                     outputDim2   = outShape[1];
@@ -133,7 +122,6 @@ public class YoloClassifier {
                         + "  outputDim1=" + outputDim1
                         + "  outputDim2=" + outputDim2);
 
-                // Parse proto tensor shape
                 int[] protoShape = interpreter.getOutputTensor(protoTensorIndex).shape();
                 Log.d(TAG, "Proto tensor[" + protoTensorIndex + "] shape: " + Arrays.toString(protoShape));
 
@@ -152,13 +140,12 @@ public class YoloClassifier {
                         + "  protoH=" + protoH + "  protoW=" + protoW);
 
             } else {
-                // Single-output model — just parse the one box tensor
                 int[] outShape = interpreter.getOutputTensor(0).shape();
                 if (outShape.length == 3) {
                     int d1 = outShape[1];
                     int d2 = outShape[2];
                     if (d1 < d2) { outputDim1 = d1; outputDim2 = d2; isTransposed = false; }
-                    else         { outputDim1 = d1; outputDim2 = d2; isTransposed = true;  }
+                    else          { outputDim1 = d1; outputDim2 = d2; isTransposed = true;  }
                 }
                 Log.w(TAG, "Model has only 1 output tensor — segmentation masks NOT available.");
             }
@@ -182,13 +169,9 @@ public class YoloClassifier {
             return results;
         }
 
-        // 1. Resize to 640×640
         Bitmap resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true);
-
-        // 2. Bitmap → float32 ByteBuffer
         ByteBuffer inputBuffer = convertBitmapToByteBuffer(resized);
 
-        // 3. Allocate output tensors using exact shapes from the model
         int[] boxShape = interpreter.getOutputTensor(boxTensorIndex).shape();
         float[][][] outputBoxes;
         if (boxShape.length == 3) {
@@ -197,13 +180,11 @@ public class YoloClassifier {
             outputBoxes = new float[1][boxShape[0]][boxShape[1]];
         }
 
-        // Reset proto mask holders
         protoMasksFirst = null;
         protoMasksLast  = null;
 
         boolean hasProtoOutput = interpreter.getOutputTensorCount() >= 2;
 
-        // 4. Run inference
         if (hasProtoOutput) {
             if (protoChannelsFirst) {
                 protoMasksFirst = new float[1][NUM_MASK_COEFFICIENTS][protoH][protoW];
@@ -224,7 +205,6 @@ public class YoloClassifier {
             } catch (Exception e) {
                 Log.e(TAG, "Dual-output inference failed:", e);
 
-                // ── Fallback: try swapping the output indices ─────────────────
                 Log.w(TAG, "Retrying with SWAPPED output indices…");
                 protoMasksFirst = null;
                 protoMasksLast  = null;
@@ -232,7 +212,6 @@ public class YoloClassifier {
                 boxTensorIndex   = protoTensorIndex;
                 protoTensorIndex = tmp;
 
-                // Re-allocate box buffer for the new index
                 int[] swappedBoxShape = interpreter.getOutputTensor(boxTensorIndex).shape();
                 float[][][] swappedOutputBoxes;
                 if (swappedBoxShape.length == 3) {
@@ -271,8 +250,8 @@ public class YoloClassifier {
             }
         }
 
-        // 5. Parse detections and return after NMS
-        return applyNMS(parseOutput(outputBoxes[0]));
+        lastResults = applyNMS(parseOutput(outputBoxes[0]));
+        return lastResults;
     }
 
     // ── Convert Bitmap → float32 ByteBuffer [0,1] ────────────────────────────
@@ -381,16 +360,60 @@ public class YoloClassifier {
         return 0f;
     }
 
+    // ── NEW: Count leaf mask pixels from best.tflite segmentation output ──────
+    /**
+     * Counts the number of proto-grid pixels that belong to the detected leaf
+     * mask from best.tflite. This value is used by DiseaseClassifier as the
+     * denominator (total leaf area) when computing disease severity percentage.
+     *
+     * Must be called AFTER detect() has been run on the same bitmap.
+     *
+     * Returns 0 if no proto masks are available (single-output model fallback).
+     */
+    public long getLeafMaskPixelCount() {
+        if (lastResults == null || lastResults.isEmpty()) return 0;
+        boolean hasProto = (protoMasksFirst != null || protoMasksLast != null);
+        if (!hasProto) {
+            // Fallback: estimate leaf area from bounding box of best detection
+            DetectionResult best = lastResults.get(0);
+            float area = (best.boundingBox.right - best.boundingBox.left)
+                    * (best.boundingBox.bottom - best.boundingBox.top);
+            // Scale to proto grid units so caller has a consistent unit
+            return (long)(area * protoH * protoW);
+        }
+
+        long leafPixels = 0;
+        for (int py = 0; py < protoH; py++) {
+            for (int px = 0; px < protoW; px++) {
+                float nx = (px + 0.5f) / protoW;
+                float ny = (py + 0.5f) / protoH;
+
+                for (DetectionResult r : lastResults) {
+                    if (nx < r.boundingBox.left  || nx > r.boundingBox.right
+                            || ny < r.boundingBox.top   || ny > r.boundingBox.bottom) continue;
+
+                    float dot = 0f;
+                    int len = Math.min(r.maskCoefficients.length, NUM_MASK_COEFFICIENTS);
+                    for (int k = 0; k < len; k++) {
+                        dot += r.maskCoefficients[k] * getProto(k, py, px);
+                    }
+                    if (sigmoid(dot) > 0.5f) {
+                        leafPixels++;
+                        break; // count this proto pixel once even if detections overlap
+                    }
+                }
+            }
+        }
+        Log.d(TAG, "getLeafMaskPixelCount ► leafPixels=" + leafPixels
+                + "  protoGrid=" + protoW + "x" + protoH);
+        return leafPixels;
+    }
+
+    private static float sigmoid(float x) {
+        return 1f / (1f + (float) Math.exp(-x));
+    }
+
     // ── Render segmentation mask ONLY (no bounding box, no label) ────────────
-    //
-    // HOW IT WORKS:
-    //   1. For each detected object, take its 32 mask coefficients.
-    //   2. Multiply each by the corresponding proto map (protoH × protoW).
-    //   3. Sum all 32 → raw mask map of size protoH × protoW.
-    //   4. Apply sigmoid → values 0..1.
-    //   5. Threshold at 0.5 → binary mask.
-    //   6. Scale each proto pixel → image pixel coordinates and paint green.
-    //
     public Bitmap renderMask(Bitmap original, List<DetectionResult> results) {
         Bitmap mutable = original.copy(Bitmap.Config.ARGB_8888, true);
 
@@ -407,7 +430,6 @@ public class YoloClassifier {
         int[] pixels = new int[W * H];
         mutable.getPixels(pixels, 0, W, 0, 0, W, H);
 
-        // Semi-transparent green overlay (ARGB)
         final int alpha = 120;
 
         for (DetectionResult r : results) {
@@ -415,7 +437,6 @@ public class YoloClassifier {
 
             int numCoeffs = Math.min(r.maskCoefficients.length, NUM_MASK_COEFFICIENTS);
 
-            // Build raw mask at proto resolution
             float[] rawMask = new float[protoH * protoW];
             for (int k = 0; k < numCoeffs; k++) {
                 float coeff = r.maskCoefficients[k];
@@ -426,13 +447,11 @@ public class YoloClassifier {
                 }
             }
 
-            // Apply sigmoid to the raw mask first
             float[] sigMask = new float[protoH * protoW];
             for (int i = 0; i < rawMask.length; i++) {
                 sigMask[i] = 1f / (1f + (float) Math.exp(-rawMask[i]));
             }
 
-            // Bounding box in image pixel coords
             int bx1 = (int)(r.boundingBox.left   * W);
             int by1 = (int)(r.boundingBox.top    * H);
             int bx2 = (int)(r.boundingBox.right  * W);
@@ -441,30 +460,25 @@ public class YoloClassifier {
             bx1 = Math.max(0, bx1); by1 = Math.max(0, by1);
             bx2 = Math.min(W, bx2); by2 = Math.min(H, by2);
 
-            // For each IMAGE pixel inside the bounding box, bilinearly sample the sigmask
             for (int iy = by1; iy < by2; iy++) {
                 for (int ix = bx1; ix < bx2; ix++) {
 
-                    // Map image pixel → proto space (floating point)
                     float protoFx = ((ix + 0.5f) / W) * protoW - 0.5f;
                     float protoFy = ((iy + 0.5f) / H) * protoH - 0.5f;
 
-                    // Bilinear interpolation corners
                     int x0 = (int) Math.floor(protoFx);
                     int y0 = (int) Math.floor(protoFy);
                     int x1 = x0 + 1;
                     int y1 = y0 + 1;
 
-                    float wx = protoFx - x0; // fractional part
+                    float wx = protoFx - x0;
                     float wy = protoFy - y0;
 
-                    // Clamp to valid proto bounds
                     x0 = Math.max(0, Math.min(protoW - 1, x0));
                     x1 = Math.max(0, Math.min(protoW - 1, x1));
                     y0 = Math.max(0, Math.min(protoH - 1, y0));
                     y1 = Math.max(0, Math.min(protoH - 1, y1));
 
-                    // Sample 4 neighbours and interpolate
                     float v00 = sigMask[y0 * protoW + x0];
                     float v10 = sigMask[y0 * protoW + x1];
                     float v01 = sigMask[y1 * protoW + x0];
@@ -475,11 +489,10 @@ public class YoloClassifier {
 
                     if (val < 0.5f) continue;
 
-                    // Alpha-blend orange over the pixel
                     int base = pixels[iy * W + ix];
                     int inv  = 255 - alpha;
-                    int r2 = (Color.red(base)   * inv + 0 * alpha) / 255;
-                    int g2 = (Color.green(base) * inv + 220 * alpha) / 255;
+                    int r2 = (Color.red(base)   * inv + 0     * alpha) / 255;
+                    int g2 = (Color.green(base) * inv + 220   * alpha) / 255;
                     int b2 = (Color.blue(base)  * inv + 220   * alpha) / 255;
                     pixels[iy * W + ix] = Color.argb(255, r2, g2, b2);
                 }
@@ -498,5 +511,6 @@ public class YoloClassifier {
         }
         protoMasksFirst = null;
         protoMasksLast  = null;
+        lastResults     = null;
     }
 }

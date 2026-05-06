@@ -103,6 +103,7 @@ public class AnalysisResultActivity extends AppCompatActivity {
     private void startAnalysis() {
         String diseaseName        = getIntent().getStringExtra("disease_name");
         double diseasedPercentage = getIntent().getDoubleExtra("diseased_percentage", 0.0);
+        float  averageConfidence  = getIntent().getFloatExtra("average_confidence", 0f);
 
         String commonCause = "";
         String symptoms    = "";
@@ -146,7 +147,8 @@ public class AnalysisResultActivity extends AppCompatActivity {
         if (tvSesValue != null)            tvSesValue.setText("SES " + sesScale);
         if (tvLevelValue != null) {
             tvLevelValue.setText(String.format(Locale.getDefault(),
-                    "Severity Level: %.0f%% (%s)", diseasedPercentage, description));
+                    "Severity Level: %.0f%% (%s) · Confidence: %.0f%%",
+                    diseasedPercentage, description, averageConfidence * 100f));
         }
     }
 }

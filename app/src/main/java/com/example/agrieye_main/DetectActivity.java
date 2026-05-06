@@ -37,11 +37,18 @@ public class DetectActivity extends AppCompatActivity {
     private boolean isFromCamera      = false;
 
     // Stored from Model 1 result
-    private float detectedConfidence = 0f;
+    private float detectedConfidence  = 0f;
+
+    /**
+     * Leaf mask pixel count from best.tflite (Model 1).
+     * Populated after a successful Step 1 detect() call.
+     * Passed to DiseaseClassifier.analyze() as the severity denominator.
+     */
+    private long leafMaskPixelCount = 0L;
 
     // ── Models ────────────────────────────────────────────────────────────────
-    private YoloClassifier    classifier;        // Model 1: palay/leaf presence
-    private DiseaseClassifier diseaseClassifier; // Model 2: disease + severity
+    private YoloClassifier    classifier;        // Model 1: best.tflite  — palay/leaf presence + leaf mask
+    private DiseaseClassifier diseaseClassifier; // Model 2: disease.tflite — disease (4 classes)
 
     // ── Views ─────────────────────────────────────────────────────────────────
     private ImageView    ivDetectImage;
@@ -79,21 +86,20 @@ public class DetectActivity extends AppCompatActivity {
         btnRetake.setText(isFromCamera ? "Retake" : "Re-import");
         if (loadedBitmap != null) ivDetectImage.setImageBitmap(loadedBitmap);
 
-        // ── Load Model 1: Palay/Leaf detector ────────────────────────────────
+        // ── Load Model 1: Palay/Leaf detector (best.tflite) ──────────────────
         classifier = new YoloClassifier(this);
         if (!classifier.initialize()) {
-            Log.e(TAG, "Model 1 (YoloClassifier) failed to load.");
+            Log.e(TAG, "Model 1 (YoloClassifier / best.tflite) failed to load.");
             tvInfoMessage.setText("Leaf detection model failed to load. Please reinstall the app.");
             tvInfoMessage.setVisibility(View.VISIBLE);
             btnAction.setEnabled(false);
         }
 
-        // ── Load Model 2: Disease classifier ─────────────────────────────────
+        // ── Load Model 2: Disease classifier (disease.tflite) ────────────────
         diseaseClassifier = new DiseaseClassifier(this);
         if (!diseaseClassifier.initialize()) {
-            // Non-fatal — we log it, but still allow leaf detection (Step 1) to work.
-            // Step 2 (Analyze) will show an error if Model 2 is unavailable.
-            Log.e(TAG, "Model 2 (DiseaseClassifier) failed to load.");
+            // Non-fatal — log it, but still allow Step 1 to work.
+            Log.e(TAG, "Model 2 (DiseaseClassifier / disease.tflite) failed to load.");
         }
 
         // ── Gallery launcher ──────────────────────────────────────────────────
@@ -112,6 +118,7 @@ public class DetectActivity extends AppCompatActivity {
                             isPalayDetected   = false;
                             isDetectionFailed = false;
                             isFromCamera      = false;
+                            leafMaskPixelCount = 0L;
                             btnAction.setText("Detect");
                             btnRetake.setVisibility(View.GONE);
                             btnRetake.setText("Re-import");
@@ -138,25 +145,37 @@ public class DetectActivity extends AppCompatActivity {
 
             } else if (!isPalayDetected) {
                 // ══════════════════════════════════════════════════════════════
-                //  STEP 1 — Run Model 1: Is there a rice/palay leaf here?
+                //  STEP 1 — Run Model 1 (best.tflite):
+                //           Detect palay leaf presence AND extract leaf mask.
                 // ══════════════════════════════════════════════════════════════
                 showLoadingState("Detecting…");
 
                 new Thread(() -> {
                     List<YoloClassifier.DetectionResult> results = null;
-                    if (loadedBitmap != null) results = classifier.detect(loadedBitmap);
+                    long leafPixels = 0L;
+
+                    if (loadedBitmap != null) {
+                        results    = classifier.detect(loadedBitmap);
+                        // Grab the leaf pixel count immediately after detect()
+                        // while proto masks are still in memory.
+                        leafPixels = classifier.getLeafMaskPixelCount();
+                    }
+
                     final List<YoloClassifier.DetectionResult> finalResults = results;
+                    final long finalLeafPixels = leafPixels;
 
                     runOnUiThread(() -> {
                         hideLoadingState();
 
                         if (finalResults != null && !finalResults.isEmpty()) {
                             // ── Palay leaf detected ───────────────────────────
-                            isPalayDetected  = true;
+                            isPalayDetected    = true;
+                            leafMaskPixelCount = finalLeafPixels; // store for Step 2
+
                             YoloClassifier.DetectionResult best = finalResults.get(0);
                             detectedConfidence = best.confidence;
 
-                            // Draw Model 1 bounding box
+                            // Draw Model 1 bounding-box / mask overlay
                             Bitmap withBox = classifier.renderMask(loadedBitmap, finalResults);
                             ivDetectImage.setImageBitmap(withBox);
                             saveAnnotatedBitmap(withBox);
@@ -170,9 +189,12 @@ public class DetectActivity extends AppCompatActivity {
                             btnAction.setText("Analyze");
                             btnRetake.setVisibility(View.VISIBLE);
 
+                            Log.d(TAG, "Step 1 complete — leafMaskPixelCount=" + leafMaskPixelCount);
+
                         } else {
                             // ── No leaf detected ──────────────────────────────
                             isDetectionFailed = true;
+                            leafMaskPixelCount = 0L;
                             String msg = isFromCamera
                                     ? "         No Palay Detected!\nPlease retake the photo."
                                     : "         No Palay Detected!\nPlease re-import the photo.";
@@ -186,18 +208,24 @@ public class DetectActivity extends AppCompatActivity {
 
             } else {
                 // ══════════════════════════════════════════════════════════════
-                //  STEP 2 — Run Model 2: What disease is it? How severe?
+                //  STEP 2 — Run Model 2 (disease.tflite):
+                //           Classify disease and compute severity using the
+                //           leaf mask pixel count from Step 1.
                 // ══════════════════════════════════════════════════════════════
                 showLoadingState("Analyzing…");
                 btnRetake.setEnabled(false);
+
+                // Capture for lambda (leafMaskPixelCount is a field, but we
+                // snapshot it here for thread safety).
+                final long leafPixelsForAnalysis = leafMaskPixelCount;
 
                 new Thread(() -> {
                     DiseaseClassifier.AnalysisSummary summary = null;
 
                     if (loadedBitmap != null) {
-                        // Use the original (non-annotated) bitmap for disease inference
-                        // so Model 1's bounding box doesn't interfere with Model 2's input.
-                        summary = diseaseClassifier.analyze(loadedBitmap);
+                        // Use the original (non-annotated) bitmap so Model 1's
+                        // overlay doesn't interfere with Model 2's input.
+                        summary = diseaseClassifier.analyze(loadedBitmap, leafPixelsForAnalysis);
                     }
 
                     final DiseaseClassifier.AnalysisSummary finalSummary = summary;
@@ -207,8 +235,8 @@ public class DetectActivity extends AppCompatActivity {
                         btnRetake.setEnabled(true);
 
                         if (finalSummary == null) {
-                            // Disease model unavailable
-                            tvInfoMessage.setText("Disease analysis unavailable. Check that disease.tflite is in assets.");
+                            tvInfoMessage.setText(
+                                    "Disease analysis unavailable. Check that disease.tflite is in assets.");
                             tvInfoMessage.setVisibility(View.VISIBLE);
                             return;
                         }
@@ -219,11 +247,12 @@ public class DetectActivity extends AppCompatActivity {
                             saveAnnotatedBitmap(finalSummary.annotatedBitmap);
                         }
 
-                        // Navigate to AnalysisResultActivity with real model output
+                        // Navigate to AnalysisResultActivity
                         Intent intent = new Intent(DetectActivity.this, AnalysisResultActivity.class);
-                        intent.putExtra("image_path",          imagePath);
-                        intent.putExtra("disease_name",        finalSummary.diseaseName);
-                        intent.putExtra("diseased_percentage", finalSummary.diseasedPercentage);
+                        intent.putExtra("image_path",           imagePath);
+                        intent.putExtra("disease_name",         finalSummary.diseaseName);
+                        intent.putExtra("diseased_percentage",  finalSummary.diseasedPercentage);
+                        intent.putExtra("average_confidence",   finalSummary.averageConfidence);
                         startActivity(intent);
                     });
                 }).start();
