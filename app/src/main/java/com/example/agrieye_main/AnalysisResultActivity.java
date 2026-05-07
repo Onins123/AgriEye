@@ -2,6 +2,7 @@ package com.example.agrieye_main;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.Build;
 import android.os.Bundle;
 import android.transition.AutoTransition;
 import android.transition.TransitionManager;
@@ -10,6 +11,7 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.content.Intent;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -33,7 +35,9 @@ public class AnalysisResultActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().setDecorFitsSystemWindows(false);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+        }
         setContentView(R.layout.activity_analysis_result);
 
         // 1. Bind views
@@ -60,6 +64,14 @@ public class AnalysisResultActivity extends AppCompatActivity {
         // 2. Back button
         ImageButton btnBack = findViewById(R.id.btnBack);
         btnBack.setOnClickListener(v -> finish());
+
+        com.google.android.material.button.MaterialButton btnHome = findViewById(R.id.btnHome);
+        btnHome.setOnClickListener(v -> {
+            Intent intent = new Intent(AnalysisResultActivity.this, MainActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(intent);
+            finish();
+        });
 
         // 3. Sections open by default
         expandableAbout.setVisibility(View.VISIBLE);
@@ -139,48 +151,50 @@ public class AnalysisResultActivity extends AppCompatActivity {
                     commonCause = "N/A";
                     symptoms    = "No disease symptoms detected.";
                     management  =
-                            "• Routine Scouting: Continue weekly field monitoring to detect early signs of pests or pathogens.\n" +
-                                    "• Balanced Fertilization: Use the Leaf Color Chart (LCC) to apply the correct nitrogen levels and avoid over-fertilizing.\n" +
-                                    "• Clean Culture: Keep bunds and canals free of weeds that may host disease vectors.\n" +
-                                    "• Water Management: Practice Alternate Wetting and Drying (AWD) to strengthen roots and reduce fungal risks.\n" +
-                                    "• Conserve Natural Enemies: Avoid unnecessary chemical sprays to protect beneficial insects like spiders and dragonflies.\n" +
+                            "• Routine Scouting: Continue weekly field monitoring to detect early signs of pests or pathogens.\n\n" +
+                                    "• Balanced Fertilization: Use the Leaf Color Chart (LCC) to apply the correct nitrogen levels and avoid over-fertilizing.\n\n" +
+                                    "• Clean Culture: Keep bunds and canals free of weeds that may host disease vectors.\n\n" +
+                                    "• Water Management: Practice Alternate Wetting and Drying (AWD) to strengthen roots and reduce fungal risks.\n\n" +
+                                    "• Conserve Natural Enemies: Avoid unnecessary chemical sprays to protect beneficial insects like spiders and dragonflies.\n\n" +
                                     "• Field Sanitation: Remove any crop debris from previous seasons to prevent dormant pathogen buildup.";
                     sesScale    = "0";
                     description = "Healthy";
                     break;
 
                 case "bacterial leaf blight":
-                    commonCause = "Xanthomonas oryzae pv. oryzae";
+                    commonCause = "Caused by Xanthomonas oryzae pv. oryzae. It causes wilting of seedlings and yellowing and drying of leaves.";
                     symptoms    =
-                            "• Water-soaked to yellowish stripes on leaf blades.\n" +
-                                    "• Milky ooze on leaves during morning.";
+                            "• On older plants, lesions usually develop as water-soaked to yellow-orange stripes on leaf blades or leaf tips or on mechanically injured parts of leaves. Lesions have a wavy margin and progress toward the leaf base.\n\n" +
+                                    "• On young lesions, bacterial ooze resembling a milky dew drop can be observed early in the morning. The bacterial ooze later on dries up and becomes small yellowish beads underneath the leaf.\n\n" +
+                                    "• Old lesions turn yellow to grayish white with black dots due to the growth of various saprophytic fungi.\n\n" +
+                                    "• On severely infected leaves, lesions may extend to the leaf sheath.";
                     SeverityInfo blb = getSeverityInfo(diseasedPercentage, new SeverityTier[]{
                             new SeverityTier(5,   "1", "Very Slight",
-                                    "• Ensure balanced nitrogen fertilization — avoid excessive application.\n" +
-                                            "• Maintain proper field drainage to reduce moisture buildup.\n" +
+                                    "• Ensure balanced nitrogen fertilization — avoid excessive application.\n\n" +
+                                            "• Maintain proper field drainage to reduce moisture buildup.\n\n" +
                                             "• Remove weeds and volunteer seedlings that may serve as inoculum sources."),
                             new SeverityTier(12,  "3", "Low",
-                                    "• Reduce nitrogen application to prevent susceptibility to BLB.\n" +
-                                            "• Improve field drainage.\n" +
-                                            "• Remove infected plant debris, weed hosts, and crop stubble from the field.\n" +
+                                    "• Reduce nitrogen application to prevent susceptibility to BLB.\n\n" +
+                                            "• Improve field drainage.\n\n" +
+                                            "• Remove infected plant debris, weed hosts, and crop stubble from the field.\n\n" +
                                             "• Allow fallow fields to dry to suppress bacterial survival."),
                             new SeverityTier(25,  "5", "Moderate",
-                                    "• Immediately balance nitrogen levels and ensure field drainage.\n" +
-                                            "• Plow under right after harvest the stubble or volunteer seedlings to reduce inoculum.\n" +
-                                            "• Isolate heavily affected areas if possible.\n" +
-                                            "• Monitor neighboring hills closely for spread.\n" +
+                                    "• Immediately balance nitrogen levels and ensure field drainage.\n\n" +
+                                            "• Plow under right after harvest the stubble or volunteer seedlings to reduce inoculum.\n\n" +
+                                            "• Isolate heavily affected areas if possible.\n\n" +
+                                            "• Monitor neighboring hills closely for spread.\n\n" +
                                             "• Consult your local agriculture office for further intervention."),
                             new SeverityTier(50,  "7", "High",
-                                    "• Strictly control nitrogen fertilization.\n" +
-                                            "• Ensure thorough drainage of standing water.\n" +
-                                            "• Remove and destroy all infected plant material.\n" +
-                                            "• Consider fallow drying to suppress bacterial survival in soil and plant residues.\n" +
+                                    "• Strictly control nitrogen fertilization.\n\n" +
+                                            "• Ensure thorough drainage of standing water.\n\n" +
+                                            "• Remove and destroy all infected plant material.\n\n" +
+                                            "• Consider fallow drying to suppress bacterial survival in soil and plant residues.\n\n" +
                                             "• Consult your local agriculture office for further intervention."),
                             new SeverityTier(100, "9", "Severe",
-                                    "• Immediately stop nitrogen application.\n" +
-                                            "• Drain fields thoroughly.\n" +
-                                            "• Remove all infected material.\n" +
-                                            "• Plan and choose resistant varieties for the next cropping season.\n" +
+                                    "• Immediately stop nitrogen application.\n\n" +
+                                            "• Drain fields thoroughly.\n\n" +
+                                            "• Remove all infected material.\n\n" +
+                                            "• Plan and choose resistant varieties for the next cropping season.\n\n" +
                                             "• Consult your local agriculture office for further intervention.")
                     });
                     management  = blb.management;
@@ -189,36 +203,37 @@ public class AnalysisResultActivity extends AppCompatActivity {
                     break;
 
                 case "bacterial leaf streak":
-                    commonCause = "Xanthomonas oryzae pv. oryzicola";
+                    commonCause = "Caused by Xanthomonas oryzae pv. oryzicola. Infected plants show browning and drying of leaves. Under severe conditions, this could lead to reduced grain weight due to loss of photosynthetic area.";
                     symptoms    =
-                            "• Water-soaked, dark green streaks on leaves.\n" +
-                                    "• Translucent stripes between leaf veins.";
+                            "• Symptoms initially appear as small, water-soaked, linear lesions between leaf veins. These streaks are initially dark green and later become light brown to yellowish gray.\n\n" +
+                                    "• Entire leaves may become brown and die when the disease is very severe.\n\n" +
+                                    "• Under humid conditions, yellow droplets of bacterial ooze, which contain masses of bacterial cells, may be observed on the surface of leaves.";
                     SeverityInfo bls = getSeverityInfo(diseasedPercentage, new SeverityTier[]{
                             new SeverityTier(0.99, "1", "Very Slight",
-                                    "• Maintain balanced nitrogen application.\n" +
+                                    "• Maintain balanced nitrogen application.\n\n" +
                                             "• Monitor and observe if lesions spread to surrounding plants."),
                             new SeverityTier(5,    "3", "Low",
-                                    "• Improve field drainage.\n" +
-                                            "• Remove infected stubble and weed hosts from the field.\n" +
-                                            "• Continue balanced nitrogen fertilization.\n" +
+                                    "• Improve field drainage.\n\n" +
+                                            "• Remove infected stubble and weed hosts from the field.\n\n" +
+                                            "• Continue balanced nitrogen fertilization.\n\n" +
                                             "• Monitor closely during high-temperature and high-humidity conditions."),
                             new SeverityTier(10,   "5", "Moderate",
-                                    "• Plant resistant varieties in the next season.\n" +
-                                            "• Apply hot-water seed treatment for seed lots.\n" +
-                                            "• Ensure proper drainage and reduce nitrogen to avoid worsening.\n" +
-                                            "• Remove weeds, stubble, and volunteer seedlings.\n" +
+                                    "• Plant resistant varieties in the next season.\n\n" +
+                                            "• Apply hot-water seed treatment for seed lots.\n\n" +
+                                            "• Ensure proper drainage and reduce nitrogen to avoid worsening.\n\n" +
+                                            "• Remove weeds, stubble, and volunteer seedlings.\n\n" +
                                             "• Dry fallow fields to suppress bacterial survival."),
                             new SeverityTier(50,   "7", "High",
-                                    "• In severe cases, apply copper-based bactericides at the heading stage to help reduce severity.\n" +
-                                            "• Strictly maintain field sanitation — remove all infected material.\n" +
-                                            "• Ensure thorough drainage.\n" +
-                                            "• Stop excessive nitrogen application.\n" +
+                                    "• In severe cases, apply copper-based bactericides at the heading stage to help reduce severity.\n\n" +
+                                            "• Strictly maintain field sanitation — remove all infected material.\n\n" +
+                                            "• Ensure thorough drainage.\n\n" +
+                                            "• Stop excessive nitrogen application.\n\n" +
                                             "• Consult your local agriculture office for further intervention."),
                             new SeverityTier(100,  "9", "Severe",
-                                    "• Apply copper-based bactericides immediately if not yet done.\n" +
-                                            "• Remove and destroy all infected plant material.\n" +
-                                            "• Drain the field thoroughly.\n" +
-                                            "• Consult your local agriculture office.\n" +
+                                    "• Apply copper-based bactericides immediately if not yet done.\n\n" +
+                                            "• Remove and destroy all infected plant material.\n\n" +
+                                            "• Drain the field thoroughly.\n\n" +
+                                            "• Consult your local agriculture office.\n\n" +
                                             "• Plan for resistant variety selection in the next cropping season.")
                     });
                     management  = bls.management;
@@ -227,34 +242,36 @@ public class AnalysisResultActivity extends AppCompatActivity {
                     break;
 
                 case "leaf blast":
-                    commonCause = "Magnaporthe oryzae";
+                    commonCause = "Caused by the fungus Magnaporthe oryzae. It can affect all above ground parts of a rice plant: leaf, collar, node, neck, parts of panicle, and sometimes leaf sheath.";
                     symptoms    =
-                            "• Diamond-shaped lesions with white/gray centers.\n" +
-                                    "• Brown to reddish borders on leaves.";
+                            "• Initial symptoms appear as white to gray-green lesions or spots, with dark green borders.\n\n" +
+                                    "• Older lesions on the leaves are elliptical or spindle-shaped and whitish to gray centers with red to brownish or necrotic border.\n\n" +
+                                    "• Some resemble diamond shape, wide in the center and pointed toward either ends.\n\n" +
+                                    "• Lesions can enlarge and coalesce, growing together, to kill the entire leaves.\n\n";
                     SeverityInfo lb = getSeverityInfo(diseasedPercentage, new SeverityTier[]{
                             new SeverityTier(0.99, "1", "Very Slight",
-                                    "• Adjust planting time next cropping — sow early after the onset of the rainy season to avoid peak blast conditions.\n" +
-                                            "• Split nitrogen fertilizer applications to avoid excessive nitrogen buildup.\n" +
+                                    "• Adjust planting time next cropping — sow early after the onset of the rainy season to avoid peak blast conditions.\n\n" +
+                                            "• Split nitrogen fertilizer applications to avoid excessive nitrogen buildup.\n\n" +
                                             "• Maintain field flooding if possible."),
                             new SeverityTier(5,    "3", "Low",
-                                    "• Reduce nitrogen application.\n" +
-                                            "• Maintain field flooding.\n" +
+                                    "• Reduce nitrogen application.\n\n" +
+                                            "• Maintain field flooding.\n\n" +
                                             "• In silicon-deficient soils, apply calcium silicate fertilizer to strengthen cell walls and reduce susceptibility to blast."),
                             new SeverityTier(10,   "5", "Moderate",
-                                    "• Strictly split nitrogen applications and avoid over-fertilization.\n" +
-                                            "• Apply calcium silicate in silicon-deficient soils.\n" +
-                                            "• Maintain flooding as much as possible.\n" +
-                                            "• Monitor daily for further spread.\n" +
+                                    "• Strictly split nitrogen applications and avoid over-fertilization.\n\n" +
+                                            "• Apply calcium silicate in silicon-deficient soils.\n\n" +
+                                            "• Maintain flooding as much as possible.\n\n" +
+                                            "• Monitor daily for further spread.\n\n" +
                                             "• Consult your local agriculture office for recommended fungicide options."),
                             new SeverityTier(50,   "7", "High",
-                                    "• Stop nitrogen application immediately.\n" +
-                                            "• Maintain field flooding.\n" +
-                                            "• Apply recommended fungicides as advised by your local agriculture office.\n" +
-                                            "• Adjust planting dates in future seasons to avoid high-risk blast periods.\n" +
+                                    "• Stop nitrogen application immediately.\n\n" +
+                                            "• Maintain field flooding.\n\n" +
+                                            "• Apply recommended fungicides as advised by your local agriculture office.\n\n" +
+                                            "• Adjust planting dates in future seasons to avoid high-risk blast periods.\n\n" +
                                             "• Consult your local agriculture office for further intervention."),
                             new SeverityTier(100,  "9", "Severe",
-                                    "• Remove the infected rice plants.\n" +
-                                            "• Consult your local agriculture office urgently.\n" +
+                                    "• Remove the infected rice plants.\n\n" +
+                                            "• Consult your local agriculture office urgently.\n\n" +
                                             "• Plan for resistant variety selection and improved cultural practices for the next season.")
                     });
                     management  = lb.management;
@@ -263,33 +280,34 @@ public class AnalysisResultActivity extends AppCompatActivity {
                     break;
 
                 case "narrow brown spot":
-                    commonCause = "Sphaerulina oryzina";
+                    commonCause = "Caused by the fungus Sphaerulina oryzina and can infect leaves, sheaths, and panicles. It leads to premature death of leaves and leaf sheaths, premature ripening of grains, and in severe cases, lodging of plants.";
                     symptoms    =
-                            "• Short, narrow, brown longitudinal lesions.\n" +
-                                    "• Typically occurs in late growth stages.";
+                            "• Typical lesions on leaves and upper leaf sheath are light to dark brown, linear, and progress parallel to the vein.\n\n" +
+                                    "• Lesions on the leaves of highly susceptible varieties may enlarge and connect together, forming brown linear necrotic regions.\n\n" +
+                                    "• Lesions are usually 2−10 mm long and 1−1.5 mm wide.";
                     SeverityInfo nbs = getSeverityInfo(diseasedPercentage, new SeverityTier[]{
                             new SeverityTier(0.99, "1", "Very Slight",
-                                    "• Test soil for potassium deficiency and apply balanced fertilization as needed.\n" +
-                                            "• Remove weeds and alternate hosts from the field.\n" +
+                                    "• Test soil for potassium deficiency and apply balanced fertilization as needed.\n\n" +
+                                            "• Remove weeds and alternate hosts from the field.\n\n" +
                                             "• Continue monitoring under temperatures of 25–28°C, which favor NBS development."),
                             new SeverityTier(5,    "3", "Low",
-                                    "• Apply potassium fertilizer to correct soil nutrient deficiency.\n" +
-                                            "• Maintain field sanitation by removing weeds and alternate hosts.\n" +
+                                    "• Apply potassium fertilizer to correct soil nutrient deficiency.\n\n" +
+                                            "• Maintain field sanitation by removing weeds and alternate hosts.\n\n" +
                                             "• Plant resistant varieties in the next cropping season."),
                             new SeverityTier(25,   "5", "Moderate",
-                                    "• Apply balanced fertilization with focus on correcting potassium deficiency.\n" +
+                                    "• Apply balanced fertilization with focus on correcting potassium deficiency.\n\n" +
                                             "• Strictly remove weeds and alternate hosts.\n" +
-                                            "• If the disease poses significant threat, apply propiconazole during booting to heading stages.\n" +
+                                            "• If the disease poses significant threat, apply propiconazole during booting to heading stages.\n\n" +
                                             "• Consult your local agriculture office for further intervention."),
                             new SeverityTier(50,   "7", "High",
-                                    "• Apply propiconazole fungicide immediately during booting to heading stage.\n" +
-                                            "• Correct soil potassium deficiency with appropriate fertilizers.\n" +
-                                            "• Remove and destroy all infected plant material.\n" +
-                                            "• Maintain strict field sanitation.\n" +
+                                    "• Apply propiconazole fungicide immediately during booting to heading stage.\n\n" +
+                                            "• Correct soil potassium deficiency with appropriate fertilizers.\n\n" +
+                                            "• Remove and destroy all infected plant material.\n\n" +
+                                            "• Maintain strict field sanitation.\n\n" +
                                             "• Consult your local agriculture office for further intervention."),
                             new SeverityTier(100,  "9", "Severe",
-                                    "• Remove all infected plant material.\n" +
-                                            "• Consult your local agriculture office.\n" +
+                                    "• Remove all infected plant material.\n\n" +
+                                            "• Consult your local agriculture office.\n\n" +
                                             "• Plant resistant varieties in the next season.")
                     });
                     management  = nbs.management;

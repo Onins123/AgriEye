@@ -60,7 +60,7 @@
                     android:layout_height="48dp"
                     android:layout_marginBottom="8dp"
                     android:src="@drawable/ic_leaf_off"
-                    android:tint="@android:color/white" />
+                    app:tint="@android:color/white" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -145,8 +145,7 @@
                     android:layout_height="22dp"
                     android:layout_marginTop="1dp"
                     android:layout_marginEnd="10dp"
-                    android:src="@drawable/ic_alert_triangle"
-                    android:tint="#92400E" />
+                    android:src="@drawable/ic_alert_triangle"/>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -198,6 +197,8 @@
                 android:visibility="gone"
                 app:cornerRadius="28dp"
                 app:strokeColor="@color/agri_dark_green"
+                android:textColor="@color/black"
+                android:textStyle="bold"
                 app:strokeWidth="2dp" />
 
             <com.google.android.material.button.MaterialButton
@@ -207,6 +208,8 @@
                 android:layout_weight="1"
                 android:text="Detect"
                 app:backgroundTint="@color/agri_dark_green"
+                android:textColor="@color/white"
+                android:textStyle="bold"
                 app:cornerRadius="28dp" />
 
         </LinearLayout>
