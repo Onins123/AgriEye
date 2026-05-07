@@ -1,397 +1,418 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#7a8662">
+    android:background="#000000">
 
-    <ScrollView
+    <!-- FULL SCREEN LEAF IMAGE -->
+    <ImageView
+        android:id="@+id/imageView_ResultOfAnalysis"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:fillViewport="true"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/ivLogo2">
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        tools:srcCompat="@tools:sample/avatars" />
+
+    <!-- BACK BUTTON — floats over the image -->
+    <ImageButton
+        android:id="@+id/btnBack"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="40dp"
+        android:background="@drawable/circle_button_bg"
+        android:contentDescription="Back"
+        android:src="@drawable/ic_back"
+        android:tint="#F2ECEC" />
+
+    <!-- BOTTOM SHEET -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/bottomSheet"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+        app:behavior_peekHeight="250dp"
+        app:behavior_hideable="false">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingBottom="16dp">
+            android:layout_height="wrap_content">
 
-            <!-- Back button — upper left -->
-            <ImageButton
-                android:id="@+id/btnBack"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Back"
-                android:src="@drawable/ic_back"
-                android:tint="#F2ECEC"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-            <!-- "Result" title — centered, vertically aligned with back button -->
-            <TextView
-                android:id="@+id/tvHeaderResult"
-                android:layout_width="wrap_content"
+            <!-- DRAG HANDLE + HEADER -->
+            <LinearLayout
+                android:id="@+id/sheetHeader"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-black"
-                android:text="Result"
-                android:textColor="#F2ECEC"
-                android:textSize="24sp"
-                app:layout_constraintBottom_toBottomOf="@+id/btnBack"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/btnBack" />
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:background="@drawable/bottom_sheet_bg"
+                android:paddingTop="10dp"
+                android:paddingBottom="16dp"
+                app:layout_constraintTop_toTopOf="parent">
 
-            <View
-                android:id="@+id/headerDivider"
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_marginStart="20dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="20dp"
-                android:background="#40F2ECEC"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/btnBack" />
+                <!-- Drag handle pill -->
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="4dp"
+                    android:background="#BBBBBB"
+                    android:layout_marginBottom="12dp" />
 
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardImage"
-                android:layout_width="372dp"
-                android:layout_height="140dp"
-                android:layout_marginTop="20dp"
-                app:cardBackgroundColor="#ecf1dc"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/headerDivider">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Result"
+                    android:textColor="#4c5522"
+                    android:textSize="18sp"
+                    android:fontFamily="sans-serif-black" />
 
+                <TextView
+                    android:id="@+id/tvSwipeHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Swipe up to see analysis"
+                    android:textColor="#7a8662"
+                    android:textSize="12sp"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+
+            <!-- ALL CARDS -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/sheetContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#ecf1dc"
+                android:paddingBottom="32dp"
+                android:minHeight="1000dp"
+                app:layout_constraintTop_toBottomOf="@+id/sheetHeader">
+
+                <!-- DIAGNOSIS CARD -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cardDiagnosis"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:layout_marginTop="16dp"
+                    app:cardBackgroundColor="#ecf1dc"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:padding="16dp">
+
+                        <ImageView
+                            android:id="@+id/iconDiag"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:srcCompat="@drawable/ic_diagnosis" />
+
+                        <TextView
+                            android:id="@+id/labelDiag"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="DIAGNOSIS"
+                            android:textColor="#4c5522"
+                            android:textStyle="bold"
+                            app:layout_constraintBottom_toBottomOf="@+id/iconDiag"
+                            app:layout_constraintStart_toEndOf="@+id/iconDiag"
+                            app:layout_constraintTop_toTopOf="@+id/iconDiag" />
+
+                        <androidx.cardview.widget.CardView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            app:cardBackgroundColor="#e2e8cf"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp"
+                            app:layout_constraintTop_toBottomOf="@+id/labelDiag">
+
+                            <androidx.constraintlayout.widget.ConstraintLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:padding="12dp">
+
+                                <TextView
+                                    android:id="@+id/tv_diseaseType_value"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Leaf Blast"
+                                    android:textColor="#3D4D21"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold"
+                                    app:layout_constraintStart_toStartOf="parent"
+                                    app:layout_constraintTop_toTopOf="parent" />
+
+                                <TextView
+                                    android:id="@+id/tv_severityLevel_value"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:layout_marginEnd="8dp"
+                                    android:text="Severity Level: 15% (Moderate)"
+                                    android:textColor="#3D4D21"
+                                    app:layout_constraintEnd_toStartOf="@+id/tv_severityClassification_value"
+                                    app:layout_constraintStart_toStartOf="parent"
+                                    app:layout_constraintTop_toBottomOf="@+id/tv_diseaseType_value" />
+
+                                <TextView
+                                    android:id="@+id/tv_severityClassification_value"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="SES 5"
+                                    android:textColor="#3D4D21"
+                                    android:textStyle="bold"
+                                    app:layout_constraintBottom_toBottomOf="parent"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintTop_toTopOf="parent" />
+
+                            </androidx.constraintlayout.widget.ConstraintLayout>
+                        </androidx.cardview.widget.CardView>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- ABOUT THE DISEASE CARD -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cardAbout"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:layout_marginTop="12dp"
+                    app:cardBackgroundColor="#ecf1dc"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/cardDiagnosis">
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:padding="16dp">
+
+                        <ImageView
+                            android:id="@+id/iconAbout"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:srcCompat="@drawable/ic_diagnosis" />
+
+                        <TextView
+                            android:id="@+id/labelAbout"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="ABOUT THE DISEASE"
+                            android:textColor="#4c5522"
+                            android:textStyle="bold"
+                            app:layout_constraintBottom_toBottomOf="@+id/iconAbout"
+                            app:layout_constraintStart_toEndOf="@+id/iconAbout"
+                            app:layout_constraintTop_toTopOf="@+id/iconAbout" />
+
+                        <ImageView
+                            android:id="@+id/iconChevronAbout"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_diagnosis"
+                            app:layout_constraintBottom_toBottomOf="@+id/iconAbout"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toTopOf="@+id/iconAbout" />
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/expandableAbout"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:visibility="visible"
+                            app:cardBackgroundColor="#e2e8cf"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp"
+                            app:layout_constraintTop_toBottomOf="@+id/labelAbout">
+
+                            <TextView
+                                android:id="@+id/tv_commonCause_value"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:padding="12dp"
+                                android:text="Fungus Name"
+                                android:textColor="#3D4D21"
+                                android:textSize="14sp" />
+                        </androidx.cardview.widget.CardView>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- SYMPTOMS CARD -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cardSymptoms"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:layout_marginTop="12dp"
+                    app:cardBackgroundColor="#ecf1dc"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/cardAbout">
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:padding="16dp">
+
+                        <ImageView
+                            android:id="@+id/iconSymptoms"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:srcCompat="@drawable/ic_diagnosis" />
+
+                        <TextView
+                            android:id="@+id/labelSymptoms"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="SYMPTOMS"
+                            android:textColor="#4c5522"
+                            android:textStyle="bold"
+                            app:layout_constraintBottom_toBottomOf="@+id/iconSymptoms"
+                            app:layout_constraintStart_toEndOf="@+id/iconSymptoms"
+                            app:layout_constraintTop_toTopOf="@+id/iconSymptoms" />
+
+                        <ImageView
+                            android:id="@+id/iconChevronSymptoms"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_diagnosis"
+                            app:layout_constraintBottom_toBottomOf="@+id/iconSymptoms"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toTopOf="@+id/iconSymptoms" />
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/expandableSymptoms"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:visibility="visible"
+                            app:cardBackgroundColor="#e2e8cf"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp"
+                            app:layout_constraintTop_toBottomOf="@+id/labelSymptoms">
+
+                            <TextView
+                                android:id="@+id/tv_symptoms_value"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:lineSpacingExtra="4dp"
+                                android:padding="12dp"
+                                android:text="Symptoms appear here"
+                                android:textColor="#3D4D21"
+                                android:textSize="14sp" />
+                        </androidx.cardview.widget.CardView>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- MANAGEMENT CARD -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cardManagement"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:layout_marginTop="12dp"
+                    app:cardBackgroundColor="#ecf1dc"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="0dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/cardSymptoms">
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:padding="16dp">
+
+                        <ImageView
+                            android:id="@+id/iconManage"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:srcCompat="@drawable/ic_diagnosis" />
+
+                        <TextView
+                            android:id="@+id/labelManage"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="MANAGEMENT"
+                            android:textColor="#4c5522"
+                            android:textStyle="bold"
+                            app:layout_constraintBottom_toBottomOf="@+id/iconManage"
+                            app:layout_constraintStart_toEndOf="@+id/iconManage"
+                            app:layout_constraintTop_toTopOf="@+id/iconManage" />
+
+                        <ImageView
+                            android:id="@+id/iconChevronManage"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_diagnosis"
+                            app:layout_constraintBottom_toBottomOf="@+id/iconManage"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toTopOf="@+id/iconManage" />
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/expandableManagement"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:visibility="visible"
+                            app:cardBackgroundColor="#e2e8cf"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp"
+                            app:layout_constraintTop_toBottomOf="@+id/labelManage">
+
+                            <TextView
+                                android:id="@+id/tvManagementTipsValue"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:lineSpacingExtra="4dp"
+                                android:padding="12dp"
+                                android:text="Tips will appear here"
+                                android:textColor="#3D4D21"
+                                android:textSize="14sp" />
+                        </androidx.cardview.widget.CardView>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- LOGO -->
                 <ImageView
-                    android:id="@+id/imageView_ResultOfAnalysis"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="fitXY"
-                    tools:srcCompat="@tools:sample/avatars" />
-            </androidx.cardview.widget.CardView>
+                    android:id="@+id/ivLogo2"
+                    android:layout_width="80dp"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginBottom="16dp"
+                    android:src="@drawable/agrieye_logo"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/cardManagement" />
 
-            <!-- DIAGNOSIS — always visible, no toggle -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardDiagnosis"
-                android:layout_width="371dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                app:cardBackgroundColor="#ecf1dc"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/cardImage">
-
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:id="@+id/iconDiag"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:srcCompat="@drawable/ic_diagnosis" />
-
-                    <TextView
-                        android:id="@+id/labelDiag"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="DIAGNOSIS"
-                        android:textColor="#4c5522"
-                        android:textStyle="bold"
-                        app:layout_constraintBottom_toBottomOf="@+id/iconDiag"
-                        app:layout_constraintStart_toEndOf="@+id/iconDiag"
-                        app:layout_constraintTop_toTopOf="@+id/iconDiag" />
-
-                    <androidx.cardview.widget.CardView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        app:cardBackgroundColor="#e2e8cf"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp"
-                        app:layout_constraintTop_toBottomOf="@+id/labelDiag">
-
-                        <androidx.constraintlayout.widget.ConstraintLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:padding="12dp">
-
-                            <TextView
-                                android:id="@+id/tv_diseaseType_value"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Leaf Blast"
-                                android:textColor="#3D4D21"
-                                android:textSize="22sp"
-                                android:textStyle="bold"
-                                app:layout_constraintStart_toStartOf="parent"
-                                app:layout_constraintTop_toTopOf="parent" />
-
-                            <TextView
-                                android:id="@+id/tv_severityLevel_value"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="Severity Level: 15% (Moderate)"
-                                android:textColor="#3D4D21"
-                                app:layout_constraintStart_toStartOf="parent"
-                                app:layout_constraintTop_toBottomOf="@+id/tv_diseaseType_value" />
-
-                            <TextView
-                                android:id="@+id/tv_severityClassification_value"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="SES 5"
-                                android:textColor="#3D4D21"
-                                android:textStyle="bold"
-                                app:layout_constraintBottom_toBottomOf="parent"
-                                app:layout_constraintEnd_toEndOf="parent" />
-                        </androidx.constraintlayout.widget.ConstraintLayout>
-                    </androidx.cardview.widget.CardView>
-                </androidx.constraintlayout.widget.ConstraintLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- ABOUT THE DISEASE — collapsible, open by default -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardAbout"
-                android:layout_width="371dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                app:cardBackgroundColor="#ecf1dc"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/cardDiagnosis">
-
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:id="@+id/iconAbout"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:srcCompat="@drawable/ic_diagnosis" />
-
-                    <TextView
-                        android:id="@+id/labelAbout"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="ABOUT THE DISEASE"
-                        android:textColor="#4c5522"
-                        android:textStyle="bold"
-                        app:layout_constraintBottom_toBottomOf="@+id/iconAbout"
-                        app:layout_constraintStart_toEndOf="@+id/iconAbout"
-                        app:layout_constraintTop_toTopOf="@+id/iconAbout" />
-
-                    <ImageView
-                        android:id="@+id/iconChevronAbout"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@drawable/ic_diagnosis"
-                        android:rotation="0"
-                        app:layout_constraintBottom_toBottomOf="@+id/iconAbout"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toTopOf="@+id/iconAbout" />
-
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/expandableAbout"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:visibility="visible"
-                        app:cardBackgroundColor="#e2e8cf"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp"
-                        app:layout_constraintTop_toBottomOf="@+id/labelAbout">
-
-                        <TextView
-                            android:id="@+id/tv_commonCause_value"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:padding="12dp"
-                            android:text="Fungus Name"
-                            android:textColor="#3D4D21"
-                            android:textSize="14sp" />
-                    </androidx.cardview.widget.CardView>
-                </androidx.constraintlayout.widget.ConstraintLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- SYMPTOMS — collapsible, open by default -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardSymptoms"
-                android:layout_width="371dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                app:cardBackgroundColor="#ecf1dc"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/cardAbout">
-
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:id="@+id/iconSymptoms"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:srcCompat="@drawable/ic_diagnosis" />
-
-                    <TextView
-                        android:id="@+id/labelSymptoms"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="SYMPTOMS"
-                        android:textColor="#4c5522"
-                        android:textStyle="bold"
-                        app:layout_constraintBottom_toBottomOf="@+id/iconSymptoms"
-                        app:layout_constraintStart_toEndOf="@+id/iconSymptoms"
-                        app:layout_constraintTop_toTopOf="@+id/iconSymptoms" />
-
-                    <ImageView
-                        android:id="@+id/iconChevronSymptoms"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@drawable/ic_diagnosis"
-                        android:rotation="0"
-                        app:layout_constraintBottom_toBottomOf="@+id/iconSymptoms"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toTopOf="@+id/iconSymptoms" />
-
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/expandableSymptoms"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:visibility="visible"
-                        app:cardBackgroundColor="#e2e8cf"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp"
-                        app:layout_constraintTop_toBottomOf="@+id/labelSymptoms">
-
-                        <TextView
-                            android:id="@+id/tv_symptoms_value"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:lineSpacingExtra="4dp"
-                            android:padding="12dp"
-                            android:text="• Initial symptoms appear as white to gray-green lesions."
-                            android:textColor="#3D4D21"
-                            android:textSize="14sp" />
-                    </androidx.cardview.widget.CardView>
-                </androidx.constraintlayout.widget.ConstraintLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- MANAGEMENT — collapsible, open by default -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardManagement"
-                android:layout_width="371dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                app:cardBackgroundColor="#ecf1dc"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/cardSymptoms">
-
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:id="@+id/iconManage"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:srcCompat="@drawable/ic_diagnosis" />
-
-                    <TextView
-                        android:id="@+id/labelManage"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="MANAGEMENT"
-                        android:textColor="#4c5522"
-                        android:textStyle="bold"
-                        app:layout_constraintBottom_toBottomOf="@+id/iconManage"
-                        app:layout_constraintStart_toEndOf="@+id/iconManage"
-                        app:layout_constraintTop_toTopOf="@+id/iconManage" />
-
-                    <ImageView
-                        android:id="@+id/iconChevronManage"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@drawable/ic_diagnosis"
-                        android:rotation="0"
-                        app:layout_constraintBottom_toBottomOf="@+id/iconManage"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toTopOf="@+id/iconManage" />
-
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/expandableManagement"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:visibility="visible"
-                        app:cardBackgroundColor="#e2e8cf"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp"
-                        app:layout_constraintTop_toBottomOf="@+id/labelManage">
-
-                        <TextView
-                            android:id="@+id/tvManagementTipsValue"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:lineSpacingExtra="4dp"
-                            android:padding="12dp"
-                            android:text="Tips will appear here"
-                            android:textColor="#3D4D21"
-                            android:textSize="14sp" />
-                    </androidx.cardview.widget.CardView>
-                </androidx.constraintlayout.widget.ConstraintLayout>
-            </androidx.cardview.widget.CardView>
-
+            </androidx.constraintlayout.widget.ConstraintLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 
-    <ImageView
-        android:id="@+id/ivLogo2"
-        android:layout_width="80dp"
-        android:layout_height="40dp"
-        android:layout_marginBottom="24dp"
-        android:src="@drawable/agrieye_logo"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

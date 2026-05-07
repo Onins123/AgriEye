@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#7a8662"
+    android:background="@color/agri_light_yellow_green"
     android:padding="32dp">
 
     <LinearLayout
@@ -20,7 +20,7 @@
             android:layout_marginTop="10dp"
             android:layout_marginBottom="10dp"
             android:fontFamily="@font/roboto"
-            android:text="Captured Leaf"
+            android:text="Captured Image"
             android:textColor="@color/black"
             android:textSize="22sp"
             android:textStyle="bold" />

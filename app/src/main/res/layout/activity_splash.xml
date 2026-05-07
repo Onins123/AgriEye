@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#7a8662">
+    android:background="@color/agri_light_yellow_green">
 
     <ImageView
         android:id="@+id/splash_logo"
