@@ -56,15 +56,17 @@ public class DiseaseClassifier {
     private static final String[] CLASS_NAMES = {
             "Bacterial Leaf Blight",   // 0 — BLB
             "Bacterial Leaf Streak",   // 1 — BLS
-            "Leaf Blast",              // 2 — LEAF BLAST
-            "Narrow Brown Spot"        // 3 — NBS
+            "Healthy",                 // 2
+            "Leaf Blast",              // 3 — LEAF BLAST
+            "Narrow Brown Spot"        // 4 — NBS
     };
-    private static final int NUM_CLASSES = CLASS_NAMES.length; // 4
+    private static final int NUM_CLASSES = CLASS_NAMES.length; // 5
 
     // Per-class overlay colours (ARGB) — matched to CLASS_NAMES order
     private static final int[] CLASS_COLORS = {
             Color.argb(120, 231,  76,  60),  // BLB        — red
             Color.argb(120,  52, 152, 219),  // BLS        — blue
+            Color.argb(120,  46, 204, 113),  // Healthy    ─ green
             Color.argb(120, 155,  89, 182),  // LEAF BLAST — purple
             Color.argb(120,  26, 188, 156),  // NBS        — teal
     };
@@ -107,7 +109,8 @@ public class DiseaseClassifier {
         public String  diseaseName;
         /**
          * Percentage of the leaf area covered by disease pixels.
-         * Denominator = leaf pixel count from YoloClassifier (best.tflite).
+         * Denominator = leaf coverage ratio from YoloClassifier (best.tflite),
+         * expressed as a fraction of this model's own proto grid.
          */
         public double  diseasedPercentage;
         /**
@@ -190,14 +193,14 @@ public class DiseaseClassifier {
     /**
      * Run inference on the given bitmap and return a complete AnalysisSummary.
      *
-     * @param bitmap         The original (non-annotated) leaf bitmap.
-     * @param leafPixelCount Leaf area in proto-grid pixels, obtained from
-     *                       YoloClassifier.getLeafMaskPixelCount() after Step 1.
-     *                       Pass 0 to fall back to bounding-box area estimation.
+     * @param bitmap      The original (non-annotated) leaf bitmap.
+     * @param leafRatio   Fraction of the frame that is leaf (0.0–1.0), obtained
+     *                    from YoloClassifier.getLeafMaskRatio() after Step 1.
+     *                    Pass 0 to fall back to bounding-box area estimation.
      *
      * Call this from a background thread (NOT main-thread safe).
      */
-    public AnalysisSummary analyze(Bitmap bitmap, long leafPixelCount) {
+    public AnalysisSummary analyze(Bitmap bitmap, float leafRatio, boolean[][] leafMaskGrid) {
         AnalysisSummary summary = new AnalysisSummary();
         summary.diseaseName        = "Unknown";
         summary.diseasedPercentage = 0.0;
@@ -209,7 +212,7 @@ public class DiseaseClassifier {
         }
         Log.d(TAG, "DIAGNOSE ► analyze() started. Bitmap: "
                 + bitmap.getWidth() + "x" + bitmap.getHeight()
-                + "  leafPixelCount=" + leafPixelCount);
+                + "  leafRatio=" + String.format("%.4f", leafRatio));
 
         List<DiseaseResult> results = detect(bitmap);
 
@@ -219,6 +222,44 @@ public class DiseaseClassifier {
         if (results == null || results.isEmpty()) {
             Log.w(TAG, "DIAGNOSE ► No detections survived NMS. Returning Unknown/0%.");
             return summary;
+        }
+
+        // ── Step 0.5: Discard disease detections outside the leaf mask ────────────
+        if (leafMaskGrid != null && (protoMasksFirst != null || protoMasksLast != null)) {
+            List<DiseaseResult> withinLeaf = new ArrayList<>();
+            for (DiseaseResult r : results) {
+                int overlapCount = 0;
+                int totalCount   = 0;
+                for (int py = 0; py < protoH; py++) {
+                    for (int px = 0; px < protoW; px++) {
+                        float nx = (px + 0.5f) / protoW;
+                        float ny = (py + 0.5f) / protoH;
+                        if (nx < r.boundingBox.left  || nx > r.boundingBox.right
+                                || ny < r.boundingBox.top   || ny > r.boundingBox.bottom) continue;
+
+                        float dot = 0f;
+                        for (int k = 0; k < r.maskCoefficients.length; k++)
+                            dot += r.maskCoefficients[k] * getProto(k, py, px);
+
+                        if (sigmoid(dot) > 0.5f) {
+                            totalCount++;
+                            if (py < leafMaskGrid.length && px < leafMaskGrid[0].length
+                                    && leafMaskGrid[py][px]) {
+                                overlapCount++;
+                            }
+                        }
+                    }
+                }
+                float overlapRatio = totalCount > 0 ? (float) overlapCount / totalCount : 0f;
+                if (overlapRatio >= 0.5f) {
+                    withinLeaf.add(r);
+                } else {
+                    Log.d(TAG, "DIAGNOSE ► Discarded out-of-leaf detection: "
+                            + r.className
+                            + "  overlapRatio=" + String.format("%.2f", overlapRatio));
+                }
+            }
+            results = withinLeaf;
         }
 
         for (int i = 0; i < results.size(); i++) {
@@ -253,6 +294,15 @@ public class DiseaseClassifier {
                 + " (" + (dominantClassIndex >= 0 ? CLASS_NAMES[dominantClassIndex] : "none") + ")"
                 + "  totalConfSum=" + String.format("%.3f", highestSum));
 
+        if (dominantClassIndex >= 0 && CLASS_NAMES[dominantClassIndex].equals("Healthy")) {
+            summary.diseaseName        = "Healthy";
+            summary.diseasedPercentage = 0.0;
+            summary.annotatedBitmap    = bitmap; // no overlay needed
+            summary.averageConfidence  = highestSum; // optional
+            Log.d(TAG, "DIAGNOSE ► Leaf classified as Healthy. Skipping severity.");
+            return summary;
+        }
+
         // ── Step 2: Filter results to dominant class only ─────────────────────
         List<DiseaseResult> consistentResults = new ArrayList<>();
         for (DiseaseResult r : results) {
@@ -281,8 +331,10 @@ public class DiseaseClassifier {
         }
 
         summary.diseaseName        = (primaryDisease != null) ? primaryDisease.className : "Unknown";
-        // Severity and masks use the filtered consistent set only
-        summary.diseasedPercentage = computeSeverity(consistentResults, leafPixelCount);
+        // Severity uses ALL post-NMS detections (dominant class only, all lesions summed)
+        // so that every lesion of the detected disease contributes to the percentage.
+        // Masks are rendered for all consistent detections.
+        summary.diseasedPercentage = computeSeverity(consistentResults, leafRatio);
         summary.annotatedBitmap    = renderMasks(bitmap, consistentResults);
 
         // ── Step 4: Average confidence over consistent class only ─────────────
@@ -295,6 +347,7 @@ public class DiseaseClassifier {
                 + "  disease=" + summary.diseaseName
                 + "  totalDetections=" + results.size()
                 + "  consistentDetections=" + consistentResults.size()
+                + "  severityUsedDetections=" + consistentResults.size() + " (dominant class all lesions)"
                 + "  severity=" + String.format("%.2f", summary.diseasedPercentage) + "%"
                 + "  avgConf=" + String.format("%.3f", summary.averageConfidence));
 
@@ -457,46 +510,48 @@ public class DiseaseClassifier {
 
     // ── Severity calculation ──────────────────────────────────────────────────
     /**
-     * Computes (diseased pixels / leaf pixels) × 100.
+     * Computes (diseased proto-pixels / leaf proto-pixels) × 100.
      *
-     * Leaf pixel count comes from YoloClassifier (best.tflite) — passed in via
-     * analyze(). This replaces the old approach of using a dedicated LEAF class
-     * in the disease model.
+     * @param leafRatio  Fraction of the image frame covered by the leaf (0.0–1.0),
+     *                   from YoloClassifier.getLeafMaskRatio(). Using a ratio instead
+     *                   of a raw pixel count eliminates the unit mismatch that occurs
+     *                   when the two models have different proto-grid sizes.
+     *
+     *                   leafProtoPixels = leafRatio × (this model's protoH × protoW)
      *
      * Falls back to bounding-box area estimation when:
-     *   - leafPixelCount == 0 (caller didn't provide it or Model 1 had no masks), OR
+     *   - leafRatio <= 0 (caller didn't provide it or Model 1 had no masks), OR
      *   - disease model has no proto masks.
      */
-    private double computeSeverity(List<DiseaseResult> results, long leafPixelCount) {
+    private double computeSeverity(List<DiseaseResult> results, float leafRatio) {
         boolean hasProto = (protoMasksFirst != null || protoMasksLast != null);
 
-        if (!hasProto || leafPixelCount <= 0) {
-            // Fallback: use bounding box areas
-            float diseasedArea = 0f;
-            float leafAreaEstimate = 0f;
+        // Convert ratio → pixel count in THIS model's proto grid space
+        long leafPixelCount = (leafRatio > 0f) ? (long)(leafRatio * protoH * protoW) : 0;
 
-            if (leafPixelCount > 0) {
-                // We have a leaf count but no proto grid — convert to normalised area
-                leafAreaEstimate = (float) leafPixelCount / (protoH * protoW);
-            }
+        if (!hasProto || leafPixelCount <= 0) {
+            // Fallback: use bounding box areas (all in normalised 0–1 space)
+            float diseasedArea    = 0f;
+            float leafAreaEstimate = (leafRatio > 0f) ? leafRatio : 0f;
 
             for (DiseaseResult r : results) {
                 float area = (r.boundingBox.right - r.boundingBox.left)
                         * (r.boundingBox.bottom - r.boundingBox.top);
                 diseasedArea += area;
-                if (leafPixelCount <= 0) leafAreaEstimate += area; // pure fallback
+                if (leafRatio <= 0f) leafAreaEstimate += area; // pure fallback
             }
 
             if (leafAreaEstimate <= 0) leafAreaEstimate = 1f;
             double pct = Math.min(100.0, (diseasedArea / leafAreaEstimate) * 100.0);
-            Log.d(TAG, "computeSeverity (bbox fallback) ► "
-                    + String.format("%.2f", pct) + "%");
+            Log.d(TAG, "computeSeverity (bbox fallback) ► leafRatio=" + leafRatio
+                    + "  diseasedArea=" + diseasedArea
+                    + "  result=" + String.format("%.2f", pct) + "%");
             return pct;
         }
 
         // ── Mask-based severity ───────────────────────────────────────────────
-        // diseased pixels = proto pixels where any disease detection mask fires
-        // leaf pixels     = supplied by YoloClassifier from best.tflite proto masks
+        // Count proto pixels where any disease detection mask fires.
+        // Divide by the leaf pixel count expressed in THIS model's proto grid.
         long diseasedPixels = 0;
 
         for (int py = 0; py < protoH; py++) {
@@ -519,11 +574,13 @@ public class DiseaseClassifier {
             }
         }
 
-        Log.d(TAG, "computeSeverity ► leafPixels(from Model1)=" + leafPixelCount
-                + "  diseasedPixels=" + diseasedPixels);
+        Log.d(TAG, "computeSeverity ► leafRatio=" + String.format("%.4f", leafRatio)
+                + "  leafPixelCount(in disease proto grid)=" + leafPixelCount
+                + "  diseasedPixels=" + diseasedPixels
+                + "  protoGrid=" + protoW + "x" + protoH);
 
-        // Severity = diseased / total leaf area.
-        // Cap at 100 % in case the diseased area slightly exceeds the leaf area estimate.
+        // Severity = diseased / total leaf area (both in this model's proto grid units).
+        // Cap at 100% in case the diseased area slightly exceeds the leaf area estimate.
         return Math.min(100.0, ((double) diseasedPixels / leafPixelCount) * 100.0);
     }
 

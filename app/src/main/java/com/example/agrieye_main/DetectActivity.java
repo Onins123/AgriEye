@@ -38,7 +38,7 @@ public class DetectActivity extends AppCompatActivity {
     private boolean isFromCamera      = false;
 
     private float detectedConfidence  = 0f;
-    private long  leafMaskPixelCount  = 0L;
+    private float leafMaskRatio       = 0f;
 
     // ── Models ────────────────────────────────────────────────────────────────
     private YoloClassifier    classifier;
@@ -85,7 +85,8 @@ public class DetectActivity extends AppCompatActivity {
         imagePath    = getIntent().getStringExtra("image_path");
         isFromCamera = getIntent().getBooleanExtra("is_from_camera", false);
         loadedBitmap = loadBitmapFromPath(imagePath);
-        btnRetake.setText(isFromCamera ? "Retake" : "Re-import");
+        btnRetake.setText(isFromCamera ? "Retake" : "Re-Import");
+
         if (loadedBitmap != null) ivDetectImage.setImageBitmap(loadedBitmap);
 
         // ── Load Model 1 ──────────────────────────────────────────────────────
@@ -139,23 +140,23 @@ public class DetectActivity extends AppCompatActivity {
 
                 new Thread(() -> {
                     List<YoloClassifier.DetectionResult> results = null;
-                    long leafPixels = 0L;
+                    float leafRatio = 0f;
 
                     if (loadedBitmap != null) {
                         results    = classifier.detect(loadedBitmap);
-                        leafPixels = classifier.getLeafMaskPixelCount();
+                        leafRatio  = classifier.getLeafMaskRatio();
                     }
 
                     final List<YoloClassifier.DetectionResult> finalResults = results;
-                    final long finalLeafPixels = leafPixels;
+                    final float finalLeafRatio = leafRatio;
 
                     runOnUiThread(() -> {
                         hideLoadingState();
 
                         if (finalResults != null && !finalResults.isEmpty()) {
                             // ── Palay detected ────────────────────────────────
-                            isPalayDetected    = true;
-                            leafMaskPixelCount = finalLeafPixels;
+                            isPalayDetected = true;
+                            leafMaskRatio   = finalLeafRatio;
 
                             YoloClassifier.DetectionResult best = finalResults.get(0);
                             detectedConfidence = best.confidence;
@@ -178,12 +179,12 @@ public class DetectActivity extends AppCompatActivity {
                             btnAction.setText("Analyze");
                             btnRetake.setVisibility(View.VISIBLE);
 
-                            Log.d(TAG, "Step 1 complete — leafMaskPixelCount=" + leafMaskPixelCount);
+                            Log.d(TAG, "Step 1 complete — leafMaskRatio=" + leafMaskRatio);
 
                         } else {
                             // ── No leaf detected ──────────────────────────────
                             isDetectionFailed = true;
-                            leafMaskPixelCount = 0L;
+                            leafMaskRatio     = 0f;
 
                             String hint = isFromCamera
                                     ? "Make sure the image clearly shows a rice plant leaf. Try better lighting or move closer."
@@ -199,13 +200,13 @@ public class DetectActivity extends AppCompatActivity {
                 showLoadingState("Analyzing…");
                 btnRetake.setEnabled(false);
 
-                final long leafPixelsForAnalysis = leafMaskPixelCount;
+                final float leafRatioForAnalysis = leafMaskRatio;
+                final boolean[][] leafMaskGrid   = classifier.getLeafMaskGrid(160, 160);
 
                 new Thread(() -> {
                     DiseaseClassifier.AnalysisSummary summary = null;
-
                     if (loadedBitmap != null) {
-                        summary = diseaseClassifier.analyze(loadedBitmap, leafPixelsForAnalysis);
+                        summary = diseaseClassifier.analyze(loadedBitmap, leafRatioForAnalysis, leafMaskGrid);
                     }
 
                     final DiseaseClassifier.AnalysisSummary finalSummary = summary;
@@ -257,7 +258,7 @@ public class DetectActivity extends AppCompatActivity {
         confidenceLayout.setVisibility(View.GONE);
 
         // Update buttons
-        btnAction.setText(isFromCamera ? "Retake" : "Re-import");
+        btnAction.setText(isFromCamera ? "Retake" : "Re-Import");
         btnRetake.setVisibility(View.GONE);
     }
 
@@ -273,14 +274,14 @@ public class DetectActivity extends AppCompatActivity {
 
     /** Resets all UI back to the initial "ready to detect" state. */
     private void resetToInitialState() {
-        isPalayDetected    = false;
-        isDetectionFailed  = false;
-        isFromCamera       = false;
-        leafMaskPixelCount = 0L;
+        isPalayDetected   = false;
+        isDetectionFailed = false;
+        isFromCamera      = false;
+        leafMaskRatio     = 0f;
 
         btnAction.setText("Detect");
         btnRetake.setVisibility(View.GONE);
-        btnRetake.setText("Re-import");
+        btnRetake.setText("Re-Import");
 
         tvInfoMessage.setVisibility(View.GONE);
         confidenceLayout.setVisibility(View.GONE);

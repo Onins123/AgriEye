@@ -331,13 +331,11 @@ public class AnalysisResultActivity extends AppCompatActivity {
         if (tvLevelValue != null) {
             String normalized = diseaseName != null ? diseaseName.trim().toLowerCase() : "";
             if (normalized.equals("healthy") || normalized.equals("healthy leaf")) {
-                tvLevelValue.setText(String.format(Locale.getDefault(),
-                        "No infection detected · Confidence: %.0f%%",
-                        averageConfidence * 100f));
+                tvLevelValue.setText("No disease detected \nSeverity Level: 0%");
             } else {
                 tvLevelValue.setText(String.format(Locale.getDefault(),
-                        "Severity Level: %.0f%% (%s) · Confidence: %.0f%%",
-                        diseasedPercentage, description, averageConfidence * 100f));
+                        "Severity Level: %.0f%% (%s)",
+                        diseasedPercentage, description));
             }
         }
     }

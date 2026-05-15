@@ -250,7 +250,9 @@ public class YoloClassifier {
             }
         }
 
-        lastResults = applyNMS(parseOutput(outputBoxes[0]));
+        List<DetectionResult> nmsResults = applyNMS(parseOutput(outputBoxes[0]));
+        lastResults = nmsResults.isEmpty() ? nmsResults
+                : nmsResults.subList(0, 1);  // keep only highest-confidence detection
         return lastResults;
     }
 
@@ -360,29 +362,39 @@ public class YoloClassifier {
         return 0f;
     }
 
-    // ── NEW: Count leaf mask pixels from best.tflite segmentation output ──────
+    // ── Leaf mask ratio: fraction of the frame covered by the leaf (0.0–1.0) ──
     /**
-     * Counts the number of proto-grid pixels that belong to the detected leaf
-     * mask from best.tflite. This value is used by DiseaseClassifier as the
-     * denominator (total leaf area) when computing disease severity percentage.
+     * Returns the fraction of the proto-grid that is covered by the detected
+     * leaf mask (0.0 = no leaf, 1.0 = entire frame is leaf).
+     *
+     * Using a ratio instead of a raw pixel count makes this value independent
+     * of this model's proto-grid resolution, so DiseaseClassifier can safely
+     * use it as the denominator even if its own proto grid is a different size.
      *
      * Must be called AFTER detect() has been run on the same bitmap.
-     *
-     * Returns 0 if no proto masks are available (single-output model fallback).
+     * Returns 0.0 if no detections or no proto masks are available.
      */
-    public long getLeafMaskPixelCount() {
-        if (lastResults == null || lastResults.isEmpty()) return 0;
+    public float getLeafMaskRatio() {
+        if (lastResults == null || lastResults.isEmpty()) return 0f;
         boolean hasProto = (protoMasksFirst != null || protoMasksLast != null);
+
         if (!hasProto) {
-            // Fallback: estimate leaf area from bounding box of best detection
-            DetectionResult best = lastResults.get(0);
-            float area = (best.boundingBox.right - best.boundingBox.left)
-                    * (best.boundingBox.bottom - best.boundingBox.top);
-            // Scale to proto grid units so caller has a consistent unit
-            return (long)(area * protoH * protoW);
+            // Fallback: use union of bounding boxes as a normalised area estimate
+            float minX = 1f, minY = 1f, maxX = 0f, maxY = 0f;
+            for (DetectionResult r : lastResults) {
+                minX = Math.min(minX, r.boundingBox.left);
+                minY = Math.min(minY, r.boundingBox.top);
+                maxX = Math.max(maxX, r.boundingBox.right);
+                maxY = Math.max(maxY, r.boundingBox.bottom);
+            }
+            float ratio = Math.max(0f, maxX - minX) * Math.max(0f, maxY - minY);
+            Log.d(TAG, "getLeafMaskRatio (bbox fallback) ► ratio=" + ratio);
+            return Math.min(1f, ratio);
         }
 
         long leafPixels = 0;
+        long totalPixels = (long) protoH * protoW;
+
         for (int py = 0; py < protoH; py++) {
             for (int px = 0; px < protoW; px++) {
                 float nx = (px + 0.5f) / protoW;
@@ -399,14 +411,60 @@ public class YoloClassifier {
                     }
                     if (sigmoid(dot) > 0.5f) {
                         leafPixels++;
-                        break; // count this proto pixel once even if detections overlap
+                        break; // count each proto pixel once even if detections overlap
                     }
                 }
             }
         }
-        Log.d(TAG, "getLeafMaskPixelCount ► leafPixels=" + leafPixels
+
+        float ratio = (totalPixels > 0) ? (float) leafPixels / totalPixels : 0f;
+        Log.d(TAG, "getLeafMaskRatio ► leafPixels=" + leafPixels
+                + "  totalProtoPixels=" + totalPixels
+                + "  ratio=" + String.format("%.4f", ratio)
                 + "  protoGrid=" + protoW + "x" + protoH);
-        return leafPixels;
+        return ratio;
+    }
+
+    /**
+     * Returns a boolean grid (protoH × protoW) where true = leaf pixel.
+     * targetH and targetW should match DiseaseClassifier's protoH/protoW (160×160).
+     * Must be called AFTER detect().
+     */
+    public boolean[][] getLeafMaskGrid(int targetH, int targetW) {
+        boolean[][] grid = new boolean[targetH][targetW];
+        if (lastResults == null || lastResults.isEmpty()) return grid;
+        boolean hasProto = (protoMasksFirst != null || protoMasksLast != null);
+        if (!hasProto) return grid;
+
+        for (int ty = 0; ty < targetH; ty++) {
+            for (int tx = 0; tx < targetW; tx++) {
+                float nx = (tx + 0.5f) / targetW;
+                float ny = (ty + 0.5f) / targetH;
+
+                // Map target grid coords → this model's proto grid coords
+                int py = Math.min(protoH - 1, (int)(ny * protoH));
+                int px = Math.min(protoW - 1, (int)(nx * protoW));
+
+                for (DetectionResult r : lastResults) {
+                    if (nx < r.boundingBox.left  || nx > r.boundingBox.right
+                            || ny < r.boundingBox.top   || ny > r.boundingBox.bottom) continue;
+
+                    float dot = 0f;
+                    int len = Math.min(r.maskCoefficients.length, NUM_MASK_COEFFICIENTS);
+                    for (int k = 0; k < len; k++)
+                        dot += r.maskCoefficients[k] * getProto(k, py, px);
+
+                    if (sigmoid(dot) > 0.5f) { grid[ty][tx] = true; break; }
+                }
+            }
+        }
+        return grid;
+    }
+
+    /** @deprecated Use getLeafMaskRatio() instead. Kept for backward compatibility. */
+    @Deprecated
+    public long getLeafMaskPixelCount() {
+        return (long)(getLeafMaskRatio() * protoH * protoW);
     }
 
     private static float sigmoid(float x) {

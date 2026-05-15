@@ -107,25 +107,15 @@
                         android:layout_height="wrap_content"
                         android:padding="16dp">
 
-                        <ImageView
-                            android:id="@+id/iconDiag"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent"
-                            app:srcCompat="@drawable/ic_diagnosis" />
-
                         <TextView
                             android:id="@+id/labelDiag"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
                             android:text="DIAGNOSIS"
                             android:textColor="#4c5522"
                             android:textStyle="bold"
-                            app:layout_constraintBottom_toBottomOf="@+id/iconDiag"
-                            app:layout_constraintStart_toEndOf="@+id/iconDiag"
-                            app:layout_constraintTop_toTopOf="@+id/iconDiag" />
+                            tools:layout_editor_absoluteX="25dp"
+                            tools:layout_editor_absoluteY="13dp" />
 
                         <androidx.cardview.widget.CardView
                             android:layout_width="match_parent"
@@ -200,36 +190,25 @@
                         android:layout_height="wrap_content"
                         android:padding="16dp">
 
-                        <ImageView
-                            android:id="@+id/iconAbout"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent"
-                            app:srcCompat="@drawable/ic_diagnosis" />
-
                         <TextView
                             android:id="@+id/labelAbout"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
                             android:justificationMode="inter_word"
-                            android:textAlignment="textStart"
                             android:text="ABOUT THE DISEASE"
+                            android:textAlignment="textStart"
                             android:textColor="#4c5522"
                             android:textStyle="bold"
-                            app:layout_constraintBottom_toBottomOf="@+id/iconAbout"
-                            app:layout_constraintStart_toEndOf="@+id/iconAbout"
-                            app:layout_constraintTop_toTopOf="@+id/iconAbout" />
+                            tools:layout_editor_absoluteX="16dp"
+                            tools:layout_editor_absoluteY="13dp" />
 
                         <ImageView
                             android:id="@+id/iconChevronAbout"
                             android:layout_width="20dp"
                             android:layout_height="20dp"
                             android:src="@drawable/ic_diagnosis"
-                            app:layout_constraintBottom_toBottomOf="@+id/iconAbout"
                             app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintTop_toTopOf="@+id/iconAbout" />
+                            tools:layout_editor_absoluteY="16dp" />
 
                         <androidx.cardview.widget.CardView
                             android:id="@+id/expandableAbout"
@@ -274,34 +253,23 @@
                         android:layout_height="wrap_content"
                         android:padding="16dp">
 
-                        <ImageView
-                            android:id="@+id/iconSymptoms"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent"
-                            app:srcCompat="@drawable/ic_diagnosis" />
-
                         <TextView
                             android:id="@+id/labelSymptoms"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
                             android:text="SYMPTOMS"
                             android:textColor="#4c5522"
                             android:textStyle="bold"
-                            app:layout_constraintBottom_toBottomOf="@+id/iconSymptoms"
-                            app:layout_constraintStart_toEndOf="@+id/iconSymptoms"
-                            app:layout_constraintTop_toTopOf="@+id/iconSymptoms" />
+                            tools:layout_editor_absoluteX="16dp"
+                            tools:layout_editor_absoluteY="13dp" />
 
                         <ImageView
                             android:id="@+id/iconChevronSymptoms"
                             android:layout_width="20dp"
                             android:layout_height="20dp"
                             android:src="@drawable/ic_diagnosis"
-                            app:layout_constraintBottom_toBottomOf="@+id/iconSymptoms"
                             app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintTop_toTopOf="@+id/iconSymptoms" />
+                            tools:layout_editor_absoluteY="16dp" />
 
                         <androidx.cardview.widget.CardView
                             android:id="@+id/expandableSymptoms"
@@ -349,34 +317,23 @@
                         android:layout_height="wrap_content"
                         android:padding="16dp">
 
-                        <ImageView
-                            android:id="@+id/iconManage"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent"
-                            app:srcCompat="@drawable/ic_diagnosis" />
-
                         <TextView
                             android:id="@+id/labelManage"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
                             android:text="MANAGEMENT"
                             android:textColor="#4c5522"
                             android:textStyle="bold"
-                            app:layout_constraintBottom_toBottomOf="@+id/iconManage"
-                            app:layout_constraintStart_toEndOf="@+id/iconManage"
-                            app:layout_constraintTop_toTopOf="@+id/iconManage" />
+                            tools:layout_editor_absoluteX="44dp"
+                            tools:layout_editor_absoluteY="17dp" />
 
                         <ImageView
                             android:id="@+id/iconChevronManage"
                             android:layout_width="20dp"
                             android:layout_height="20dp"
                             android:src="@drawable/ic_diagnosis"
-                            app:layout_constraintBottom_toBottomOf="@+id/iconManage"
                             app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintTop_toTopOf="@+id/iconManage" />
+                            tools:layout_editor_absoluteY="16dp" />
 
                         <androidx.cardview.widget.CardView
                             android:id="@+id/expandableManagement"
