@@ -50,8 +50,8 @@ public class DiseaseClassifier {
 
     /**
      * Class order MUST match the order in your training data.yaml (nc / names list).
-     * Refactored 4-class order (LEAF and HEALTHY removed):
-     *   0 = BLB, 1 = BLS, 2 = Leaf Blast, 3 = NBS
+     * 5-class model order (matches validation output):
+     *   0 = BLB, 1 = BLS, 2 = Healthy, 3 = Leaf Blast, 4 = NBS
      */
     private static final String[] CLASS_NAMES = {
             "Bacterial Leaf Blight",   // 0 — BLB
@@ -79,8 +79,8 @@ public class DiseaseClassifier {
     private int     outputDim2    = -1;
     private boolean isTransposed  = false;
 
-    private int     protoH             = 160;
-    private int     protoW             = 160;
+    private int     protoH             = 208;  // 832 / 4 — corrected for INPUT_SIZE=832
+    private int     protoW             = 208;
     private boolean protoChannelsFirst = true;
 
     private float[][][][] protoMasksFirst = null; // [1][32][H][W]
@@ -729,6 +729,12 @@ public class DiseaseClassifier {
         float bA = (b.right - b.left) * (b.bottom - b.top);
         return inter / (aA + bA - inter + 1e-6f);
     }
+
+    /** Returns the proto mask grid height — used by DetectActivity to size the leaf mask grid. */
+    public int getProtoH() { return protoH; }
+
+    /** Returns the proto mask grid width — used by DetectActivity to size the leaf mask grid. */
+    public int getProtoW() { return protoW; }
 
     public void close() {
         if (interpreter != null) { interpreter.close(); interpreter = null; }

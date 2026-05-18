@@ -113,8 +113,10 @@ public class DetectActivity extends AppCompatActivity {
                         if (savedFile != null) {
                             deleteCurrentPhoto();
                             imagePath    = savedFile.getAbsolutePath();
+                            isFromCamera = false;  // user switched to gallery
                             loadedBitmap = loadBitmapFromPath(imagePath);
                             ivDetectImage.setImageBitmap(loadedBitmap);
+                            btnRetake.setText("Re-Import");
                             resetToInitialState();
                         }
                     }
@@ -201,7 +203,8 @@ public class DetectActivity extends AppCompatActivity {
                 btnRetake.setEnabled(false);
 
                 final float leafRatioForAnalysis = leafMaskRatio;
-                final boolean[][] leafMaskGrid   = classifier.getLeafMaskGrid(160, 160);
+                final boolean[][] leafMaskGrid   = classifier.getLeafMaskGrid(
+                        diseaseClassifier.getProtoH(), diseaseClassifier.getProtoW());
 
                 new Thread(() -> {
                     DiseaseClassifier.AnalysisSummary summary = null;
@@ -276,7 +279,8 @@ public class DetectActivity extends AppCompatActivity {
     private void resetToInitialState() {
         isPalayDetected   = false;
         isDetectionFailed = false;
-        isFromCamera      = false;
+        // NOTE: isFromCamera is intentionally NOT reset here —
+        // it is set from the Intent in onCreate and updated by the gallery launcher.
         leafMaskRatio     = 0f;
 
         btnAction.setText("Detect");
