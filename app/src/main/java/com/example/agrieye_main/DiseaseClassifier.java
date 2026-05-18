@@ -43,7 +43,7 @@ public class DiseaseClassifier {
     private static final String MODEL_FILE = "disease.tflite";
 
     // ── Model constants ───────────────────────────────────────────────────────
-    private static final int   INPUT_SIZE            = 640;
+    private static final int   INPUT_SIZE            = 832;
     private static final float CONFIDENCE_THRESHOLD  = 0.05f;
     private static final float IOU_THRESHOLD         = 0.45f;
     private static final int   NUM_MASK_COEFFICIENTS = 32;
